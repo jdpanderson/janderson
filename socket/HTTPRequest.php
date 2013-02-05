@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\net;
+namespace janderson\net\socket;
 
-use \janderson\net\Socket as Socket;
+use \janderson\net\socket\Socket as Socket;
 
 class SocketHTTPRequest {
 	const EOL = "\r\n";

@@ -1,6 +1,6 @@
 <?php
 
-namespace janderson\net;
+namespace janderson\net\socket;
 
 /**
  * Object-Oriented wrapper around the PHP Socket interface.

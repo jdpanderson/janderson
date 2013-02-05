@@ -1,9 +1,13 @@
 <?php
 
-namespace janderson\net;
+namespace janderson\net\socket;
 
-use \janderson\net\Socket;
-use \janderson\net\SocketHTTPRequest;
+require __DIR__ . "/Socket.php";
+require __DIR__ . "/HTTPRequest.php";
+require __DIR__ . "/Exception.php";
+
+use \janderson\net\socket\Socket;
+use \janderson\net\socket\HTTPRequest;
 
 class SocketServer {
 	protected $port;
@@ -20,6 +24,10 @@ class SocketServer {
 			list($errno, $error) = $this->socket->getError();
 			throw new Exception("Unable to create socket: $error ($errno)");
 		}
+	}
+
+	protected function dispatch(SocketHTTPRequest $request) {
+
 	}
 
 	public function run() {
@@ -49,23 +57,19 @@ class SocketServer {
 			if (!empty($read)) {
 				foreach ($read as $socket) {
 					if ($socket === $this->socket) {
-						$this->log("Accepting new child...");
 						$child = $socket->accept();
 						$child->setBlocking(FALSE);
 
 						$child_id = count($children);
 						$children[$child_id] = $child;
-						//$requests[$child_id] = new HTTPRequest();
 					} else {
 						$child_id = array_search($socket, $children);
-						$this->log("Reading from child $child_id");
 						if (!isset($requests[$child_id])) {
 							$requests[$child_id] = new SocketHTTPRequest();
 						}
 						if ($requests[$child_id]->readSocket($socket)) {
-							$this->log("Request complete!");
-							// XXX create response here, and either close if connection should not keep alive, or create new req.
-							$requests[$child_id] = new SocketHTTPRequest();
+							$this->dispatch($requests[$child_id]);
+							$requests[$child_id] = NULL;
 						}
 					}
 				}
