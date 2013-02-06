@@ -2,9 +2,9 @@
 
 namespace janderson\net\socket;
 
-use \janderson\net\socket\Socket as Socket;
+//use \janderson\net\socket\Socket as Socket;
 
-class SocketHTTPRequest {
+class HTTPRequest {
 	const EOL = "\r\n";
 	const BUF_LEN = 4096;
 
@@ -18,26 +18,28 @@ class SocketHTTPRequest {
 	protected $version;
 	protected $data = "";
 
-	public function readSocket(Socket $socket) {
+	public function read(Socket $socket) {
 		if ($this->flags & self::FLAG_COMPLETE) return TRUE;
 
 		if (!($this->flags & self::FLAG_HEADERS)) {
-			$this->readSocketHeaders($socket);
+			$readResult = $this->readSocketHeaders($socket);
 		}
 
 		if ($this->flags & self::FLAG_HEADERS) {
-			$this->readSocketData($socket);
+			$readResult = $this->readSocketData($socket);
 		}
+
+		if ($readResult === NULL) return NULL;
 
 		return (bool)($this->flags & self::FLAG_COMPLETE);
 	}
 
-	public function readSocketData($socket) {
+	private function readSocketData($socket) {
 		$length = $this->getHeader('content-length');
 
 		if (!$length) {
 			$this->flags |= self::FLAG_COMPLETE;
-			return;
+			return TRUE;
 		}
 
 		do {
@@ -59,12 +61,14 @@ class SocketHTTPRequest {
 
 			if ($datalen + $len == $length) {
 				$this->flags |= self::FLAG_COMPLETE;
-				return;
+				return TRUE;
 			}
 		} while ($len == $readlen);
+
+		return FALSE;
 	}
 
-	public function readSocketHeaders($socket) {
+	private function readSocketHeaders($socket) {
 		do {
 			list($buf, $len) = $socket->recv(self::BUF_LEN, MSG_PEEK | MSG_DONTWAIT);
 
@@ -74,10 +78,8 @@ class SocketHTTPRequest {
 				throw new Exception("recv error: $error ($errno)");
 			}
 
-			if (!$len) {
-// XXX should have a way to specify the closed socket to the server.
-				throw new Exception("Socket closed");
-			}
+			/* Using non-blocking sockets, if select succeeds but returns 0, the socket is closed. */
+			if (!$len) return NULL;
 
 			foreach (array("\r\n" => 2, "\n" => 1, "\r" => 1) as $eol => $eollen) {
 				$dbleollen = $eollen * 2;
@@ -102,13 +104,15 @@ class SocketHTTPRequest {
 					$this->parseRequest();
 					$this->parseHeaders();
 					$this->flags |= self::FLAG_HEADERS;
-					return;
+					return TRUE;
 				}
 			}
 
 			list($buf, $len) = $socket->recv($len);
 			$this->data .= $buf;
 		} while ($len == self::BUF_LEN);
+
+		return FALSE;
 	}
 
 	/**
