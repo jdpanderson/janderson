@@ -7,6 +7,7 @@ use janderson\net\socket\HTTPRequest;
 
 class HTTPResponse {
 	const OK = 200;
+	const BUF_LEN = 4096;
 
 	const FLAG_CLOSE = 0x01;
 
@@ -15,8 +16,9 @@ class HTTPResponse {
 	protected $message = "OK";
 	protected $request;
 	protected $data;
+	protected $sent = 0;
 
-	protected $flags = self::FLAG_CLOSE;
+	protected $flags;
 
 	public function __construct(HTTPRequest $request) {
 		$this->request = $request;
@@ -31,9 +33,17 @@ class HTTPResponse {
 			$this->build();
 		}
 
-		$socket->send($this->data, strlen($this->data));
+		$this->sent += $socket->send(substr($this->data, $this->sent, self::BUF_LEN), strlen($this->data));
 
-		return TRUE;
+		error_log("Wrote {$this->sent} of " . strlen($this->data) . " bytes");
+
+		if ($this->sent == strlen($this->data)) {
+			error_log("Closing");
+			$this->flags |= self::FLAG_CLOSE;
+			return TRUE;
+		}
+
+		return FALSE;
 	}
 
 	public function shouldClose() {

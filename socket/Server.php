@@ -14,6 +14,12 @@ class Server {
 	protected $port;
 	protected $socket;
 
+	protected $readers = array();
+	protected $writers = array();
+
+	protected $responses = array();
+	protected $requests = array();
+
 	protected function log($message) {
 		error_log($message);
 	}
@@ -21,7 +27,7 @@ class Server {
 	public function __construct($port = 8080) {
 		$this->socket = new Socket();
 		$this->socket->setBlocking(FALSE);
-		if (!$this->socket->listen(150, Socket::ADDR_ANY, $port)) {
+		if (!$this->socket->listen(100, Socket::ADDR_ANY, $port)) {
 			list($errno, $error) = $this->socket->getError();
 			throw new Exception("Unable to create socket: $error ($errno)");
 		}
@@ -31,16 +37,22 @@ class Server {
 		return new HTTPResponse($request);
 	}
 
+	protected function addReader(Socket $reader) {
+		array_unshift($this->readers, $reader);
+		array_unshift($this->requests, new HTTPRequest());
+	}
+
+	protected function addWriter(Socket $writer, HTTPResponse $response) {
+		array_unshift($this->writers, $writer);
+		array_unshift($this->responses, $response);
+	}
+
 	public function run() {
 		$this->stop = FALSE;
-		$requests = array();
-		$responses = array();
-		$readers = array();
-		$writers = array();
 
 		while (!$this->stop) {
-			$rready = array_merge(array($this->socket), $readers);
-			$wready = $writers;
+			$rready = array_merge(array($this->socket), $this->readers);
+			$wready = $this->writers;
 			$err = array_merge($rready, $wready);
 
 			$num = Socket::select($rready, $wready, $err, 5);
@@ -51,24 +63,36 @@ class Server {
 					throw new Exception("Select failed: $error ($errno)");
 				}
 
-				$this->log("No sockets ready to read. Continuing.");
+				$this->log(sprintf("No sockets ready to read. %d/%d pending readers/writers. Continuing.", count($this->readers), count($this->writers)));
 				continue;
 			}
 
-			if (!empty($err)) {
-				// XXX clean up error socket here.
-				throw new Exception("Failure on a socket: cleanup not yet handled.");
+			foreach ($err as $socket) {
+				$this->log("Socket $socket in error state. Closing.");
+				$socket->close();
+				if (($reader_id = array_search($socket, $this->readers)) !== FALSE) {
+					unset($this->readers[$reader_id], $this->requests[$reader_id]);
+				}
+				if (($writer_id = array_search($socket, $this->writers)) !== FALSE) {
+					unset($this->writers[$writer_id], $this->responses[$writer_id]);
+				}
 			}
 
 			foreach ($wready as $socket) {
-				$writer_id = array_search($socket, $writers);
-				if ($responses[$writer_id]->send($socket)) {
-					if ($responses[$writer_id]->shouldClose()) {
-						$socket->close();
+				$writer_id = array_search($socket, $this->writers);
+				if ($this->responses[$writer_id]->shouldClose()) {
+					$this->log("Normal socket close after write.");
+					$socket->close();
+					unset($this->writers[$writer_id], $this->responses[$writer_id]);
+				} elseif ($this->responses[$writer_id]->send($socket)) {
+					if ($this->responses[$writer_id]->shouldClose()) {
+						$this->log("Normal socket shutdown after write.");
+						$socket->shutdown();
+						usleep(500);
 					} else {
-						array_push($readers, $socket);
+						$this->addReader($socket);
+						unset($this->writers[$writer_id], $this->responses[$writer_id]);
 					}
-					unset($writers[$writer_id], $responses[$writer_id]);
 				}
 			}
 
@@ -76,21 +100,20 @@ class Server {
 				if ($socket === $this->socket) {
 					$child = $socket->accept();
 					$child->setBlocking(FALSE);
-					array_push($readers, $child);
+					$this->addReader($child);
 				} else {
-					$reader_id = array_search($socket, $readers);
-					if (!isset($requests[$reader_id])) {
-						$requests[$reader_id] = new HTTPRequest();
-					}
+					$reader_id = array_search($socket, $this->readers);
 
-					$readComplete = $requests[$reader_id]->read($socket);
+					$readComplete = $this->requests[$reader_id]->read($socket);
+
 					if ($readComplete) {
-						$response = $this->dispatch($requests[$reader_id]);
-						unset($readers[$reader_id], $requests[$reader_id]);
-						array_unshift($writers, $socket);
-						array_unshift($responses, $response);
+						$response = $this->dispatch($this->requests[$reader_id]);
+						unset($this->readers[$reader_id], $this->requests[$reader_id]);
+						$this->addWriter($socket, $response);
 					} elseif ($readComplete === NULL) {
-						unset($readers[$reader_id], $requests[$reader_id]);
+						$this->log("Abnormal socket closure (remote)");
+						$socket->close();
+						unset($this->readers[$reader_id], $this->requests[$reader_id]);
 					}
 				}
 			}

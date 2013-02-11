@@ -183,6 +183,18 @@ class Socket {
 		return socket_send($this->socket, $buf, $len, $flags);
 	}
 
+	const SHUT_RD = 0;
+	const SHUT_WR = 1;
+	const SHUT_RDWR = 2;
+
+	/**
+	 * @param int $how
+	 * @return bool
+	 */
+	public function shutdown($how = self::SHUT_RD) {
+		return socket_shutdown($this->socket, $how);
+	}
+
 	/**
 	 * @return resource
 	 */
