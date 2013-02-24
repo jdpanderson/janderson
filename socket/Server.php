@@ -5,6 +5,7 @@ namespace janderson\net\socket;
 require __DIR__ . "/../http/HTTP.php";
 require __DIR__ . "/../http/Request.php";
 require __DIR__ . "/../http/Response.php";
+require __DIR__ . "/../http/Dispatcher.php";
 
 require __DIR__ . "/Socket.php";
 require __DIR__ . "/Handler.php";
@@ -13,6 +14,7 @@ require __DIR__ . "/Exception.php";
 
 use \janderson\net\http\Request;
 use \janderson\net\http\Response;
+use \janderson\net\http\Dispatcher;
 
 class Server {
 	protected $port;
@@ -34,6 +36,7 @@ class Server {
 			throw new Exception("The socket must implement the handler interface");
 		}
 		$this->socket = $socket;
+		$this->dispatcher = new Dispatcher();
 	}
 
 	protected function dispatch($request) {
@@ -115,7 +118,7 @@ class Server {
 
 					if ($readComplete) {
 						/* Successfully read a request. Dispatch and respond. */
-						$socket->setResponse($this->dispatch($socket->getRequest()));
+						$socket->setResponse($this->dispatcher->dispatch($socket->getRequest()));
 						$this->writers[] = $socket;
 					} elseif ($readComplete === NULL) {
 						/* Exception caught during readRequest, or abnormal socket closure (usually remote) */

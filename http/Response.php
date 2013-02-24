@@ -24,6 +24,15 @@ class Response {
 		$this->content .= $content;
 	}
 
+	public function setStatusCode($code, $message = NULL) {
+		$this->code = $code;
+		if (isset($message)) {
+			$this->message = $message;
+		} else {
+			$this->message = HTTP::getStatusString($code);
+		}
+	}
+
 	public function setContent($content) {
 		$this->content = $content;
 	}

@@ -59,4 +59,8 @@ class Request {
 	public function getVersion() {
 		return $this->version;
 	}
+
+	public function getURI() {
+		return $this->uri;
+	}
 }
