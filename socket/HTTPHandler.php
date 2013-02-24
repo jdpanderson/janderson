@@ -4,6 +4,9 @@
  */
 namespace janderson\net\socket;
 
+use janderson\net\http\Request;
+use janderson\net\http\Response;
+
 /**
  * Implements an HTTPHandler Socket class.
  */
@@ -185,7 +188,7 @@ class HTTPHandler extends Socket implements Handler {
 
 		if (count($request) != 3) throw new Exception("Malformed request line");
 
-		$this->request = new HTTPRequest($request[0], $request[1], $request[2], $this->parseHeaders());
+		$this->request = new Request($request[0], $request[1], $request[2], $this->parseHeaders());
 	}
 
 	/**

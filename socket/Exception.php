@@ -1,6 +1,6 @@
 <?php
 /**
- * This file defines the Exception class
+ * This file defines the socket Exception class
  */
 namespace janderson\net\socket;
 

@@ -2,15 +2,17 @@
 
 namespace janderson\net\socket;
 
+require __DIR__ . "/../http/HTTP.php";
+require __DIR__ . "/../http/Request.php";
+require __DIR__ . "/../http/Response.php";
+
 require __DIR__ . "/Socket.php";
 require __DIR__ . "/Handler.php";
-require __DIR__ . "/HTTPRequest.php";
-require __DIR__ . "/HTTPResponse.php";
 require __DIR__ . "/HTTPHandler.php";
 require __DIR__ . "/Exception.php";
 
-use \janderson\net\socket\Socket;
-use \janderson\net\socket\HTTPRequest;
+use \janderson\net\http\Request;
+use \janderson\net\http\Response;
 
 class Server {
 	protected $port;
@@ -20,7 +22,7 @@ class Server {
 	protected $writers = array();
 
 	protected function log($message) {
-		//error_log($message);
+		error_log($message);
 	}
 
 	/**
@@ -34,8 +36,10 @@ class Server {
 		$this->socket = $socket;
 	}
 
-	protected function dispatch(HTTPRequest $request) {
-		return new HTTPResponse($request);
+	protected function dispatch($request) {
+		$response = new Response($request);
+		$response->setContent('This is a test');
+		return $response;
 	}
 
 	public function run() {
@@ -65,42 +69,57 @@ class Server {
 			}
 
 			foreach ($wready as $socket) {
-				$writer_id = array_search($socket, $this->writers);
-				if ($socket->shouldClose()) {
-					$this->log("Normal socket close after write.");
-					$socket->close();
-					unset($this->writers[$writer_id]);
-				} elseif ($socket->sendResponse()) {
+				try {
+					$writeComplete = $socket->sendResponse();
+				} catch (Exception $e) {
+					$this->log("Exception caught while writing request: {$e->getMessage()}");
+				}
+
+				if ($writeComplete === FALSE) continue;
+
+				if ($writeComplete) {
 					if ($socket->shouldClose()) {
-						$this->log("Normal socket shutdown after write.");
-						$socket->shutdown();
-						usleep(500);
+						$socket->close();
 					} else {
 						$this->readers[] = $socket;
-						unset($this->writers[$writer_id]);
 					}
+				} elseif ($writeComplete === NULL) {
+					$socket->close();
 				}
+
+				$writer_id = array_search($socket, $this->writers);
+				unset($this->writers[$writer_id]);
 			}
 
 			foreach ($rready as $socket) {
 				if ($socket === $this->socket) {
-					$child = $socket->accept();
+					try {
+						$child = $socket->accept();
+					} catch (Exception $e) {
+						$this->log("Failed to accept remote socket.");
+						continue;
+					}
 					$child->setBlocking(FALSE);
 					$this->readers[] = $child;
 				} else {
-					$readComplete = $socket->readRequest();
+					try {
+						$readComplete = $socket->readRequest();
+					} catch (Exception $e) {
+						$this->log("Exception caught while reading request: {$e->getMessage()}");
+					}
+
+					if ($readComplete === FALSE) continue;
 
 					$reader_id = array_search($socket, $this->readers);
+					unset($this->readers[$reader_id]);
 
 					if ($readComplete) {
-						$response = $this->dispatch($socket->getRequest());
-						$socket->setResponse($response);
-						unset($this->readers[$reader_id]);
+						/* Successfully read a request. Dispatch and respond. */
+						$socket->setResponse($this->dispatch($socket->getRequest()));
 						$this->writers[] = $socket;
 					} elseif ($readComplete === NULL) {
-						$this->log("Abnormal socket closure (remote)");
+						/* Exception caught during readRequest, or abnormal socket closure (usually remote) */
 						$socket->close();
-						unset($this->readers[$reader_id]);
 					}
 				}
 			}

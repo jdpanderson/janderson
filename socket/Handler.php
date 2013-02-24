@@ -5,7 +5,7 @@
 namespace janderson\net\socket;
 
 /**
- * Handler
+ * An interface to be implemented by protocol handlers that sit on top of sockets.
  */
 interface Handler {
 	public function getRequest();
@@ -32,4 +32,6 @@ interface Handler {
 	 * @return resource The socket resource that belongs to this class.
 	 */
 	public function getResource();
+
+	public function shouldClose();
 }
