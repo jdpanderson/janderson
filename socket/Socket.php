@@ -44,6 +44,24 @@ class Socket {
 	protected $socket;
 
 	/**
+	 * A socket address family, usually AF_INET or AF_INET6
+	 *
+	 * @var int
+	 */
+	protected $domain;
+
+	/**
+	 * A socket type, usually SOCK_STREAM or SOCK_DGRAM, though other values are accepted.
+	 *
+	 * @var int
+	 */
+	protected $type;
+
+	/**
+	 * @var int
+	 */
+	protected $protocol;
+	/**
 	 * @param int $domain Protocol family, usually AF_INET or AF_INET6. Also accepts a socket resource to be wrapped.
 	 * @param int $type
 	 * @param int $proto
@@ -54,6 +72,10 @@ class Socket {
 			return;
 		}
 
+		$this->domain = $domain;
+		$this->protocol = $proto;
+		$this->type = $type;
+
 		$this->socket = socket_create($domain, $type, $proto);
 
 		if ($this->socket === FALSE) {
@@ -61,6 +83,17 @@ class Socket {
 		}
 	}
 
+	public function getDomain() {
+		return $this->domain;
+	}
+
+	public function getType() {
+		return $this->type;
+	}
+
+	public function getProtocol() {
+		return $this->protocol;
+	}
 	/**
 	 * @return bool|Socket
 	 */

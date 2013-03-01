@@ -2,15 +2,17 @@
 /**
  * This file defines the HTTPHandler interface
  */
-namespace janderson\net\socket;
+namespace janderson\net\http;
 
 use janderson\net\http\Request;
 use janderson\net\http\Response;
+use janderson\net\socket\Socket;
+use janderson\net\socket\server\Handler as IHandler;
 
 /**
  * Implements an HTTPHandler Socket class.
  */
-class HTTPHandler extends Socket implements Handler {
+class Handler extends Socket implements IHandler {
 	const EOL = "\r\n";
 	const BUF_LEN = 4096;
 

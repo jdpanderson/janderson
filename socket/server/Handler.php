@@ -2,14 +2,24 @@
 /**
  * This file defines the Handler interface
  */
-namespace janderson\net\socket;
+namespace janderson\net\socket\server;
 
 /**
  * An interface to be implemented by protocol handlers that sit on top of sockets.
  */
 interface Handler {
+	/**
+	 * Returns the request as read by the protocol handler.
+	 *
+	 * @return mixed
+	 */
 	public function getRequest();
 
+	/**
+	 * Sets the response to be sent via the protocol handler.
+	 *
+	 * @param $response
+	 */
 	public function setResponse($response);
 
 	/**
@@ -33,5 +43,8 @@ interface Handler {
 	 */
 	public function getResource();
 
+	/**
+	 * For stream sockets, this indicates that the protocol dictates that the socket should close.
+	 */
 	public function shouldClose();
 }

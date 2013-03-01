@@ -1,20 +1,11 @@
 <?php
 
-namespace janderson\net\socket;
+namespace janderson\net\socket\server;
 
-require __DIR__ . "/../http/HTTP.php";
-require __DIR__ . "/../http/Request.php";
-require __DIR__ . "/../http/Response.php";
-require __DIR__ . "/../http/Dispatcher.php";
-
-require __DIR__ . "/Socket.php";
-require __DIR__ . "/Handler.php";
-require __DIR__ . "/HTTPHandler.php";
-require __DIR__ . "/Exception.php";
-
-use \janderson\net\http\Request;
-use \janderson\net\http\Response;
-use \janderson\net\http\Dispatcher;
+//use \janderson\net\http\Response;
+//use \janderson\net\http\Dispatcher;
+use \janderson\net\socket\Socket;
+//use \janderson\net\http\Handler;
 
 class Server {
 	protected $port;
@@ -31,12 +22,12 @@ class Server {
 	 * @param int $port
 	 * @throws Exception An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
 	 */
-	public function __construct(Socket $socket) {
+	public function __construct(Socket $socket, Dispatchable $dispatcher) {
 		if (!($socket instanceof Handler)) {
 			throw new Exception("The socket must implement the handler interface");
 		}
 		$this->socket = $socket;
-		$this->dispatcher = new Dispatcher();
+		$this->dispatcher = $dispatcher;
 	}
 
 	protected function dispatch($request) {
@@ -129,10 +120,3 @@ class Server {
 		}
 	}
 }
-
-$socket = new HTTPHandler();
-$socket->setBlocking(FALSE);
-$socket->listen(50, Socket::ADDR_ANY, 8080);
-
-$svr = new Server($socket);
-$svr->run();
