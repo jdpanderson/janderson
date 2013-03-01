@@ -2,10 +2,7 @@
 
 namespace janderson\net\socket\server;
 
-//use \janderson\net\http\Response;
-//use \janderson\net\http\Dispatcher;
 use \janderson\net\socket\Socket;
-//use \janderson\net\http\Handler;
 
 class Server {
 	protected $port;

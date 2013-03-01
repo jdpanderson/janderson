@@ -18,6 +18,7 @@ require __DIR__ . "/http/StaticDispatcher.php";
 require __DIR__ . "/http/Handler.php";
 
 use janderson\net\http\Handler as Handler;
+use janderson\net\http\Dispatcher;
 use janderson\net\http\StaticDispatcher;
 use janderson\net\socket\Socket;
 use janderson\net\socket\server\Server;
@@ -26,7 +27,9 @@ $socket = new Handler();
 $socket->setBlocking(FALSE);
 $socket->listen(100, Socket::ADDR_ANY, 8080);
 
-$dispatcher = new StaticDispatcher();
+$dispatcher = new Dispatcher(array(
+	'/js' => new StaticDispatcher()
+));
 
 $svr = new Server($socket, $dispatcher);
 $svr->run();

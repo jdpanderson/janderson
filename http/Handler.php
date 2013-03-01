@@ -92,6 +92,9 @@ class Handler extends Socket implements IHandler {
 
 	public function sendResponse() {
 		if (empty($this->buf)) {
+			if (!($this->response instanceof Response)) {
+				debug_print_backtrace();
+			}
 			list($this->buf, $this->buflen) = $this->response->getBuffer();
 			$this->bufrem = $this->buflen;
 		}

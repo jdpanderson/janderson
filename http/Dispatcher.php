@@ -13,6 +13,10 @@ use \Closure;
 class Dispatcher implements Dispatchable {
 	protected $prefixes = array();
 
+	public function __construct($prefixes = array()) {
+		$this->prefixes = $prefixes;
+	}
+
 	public function addPrefix($prefix, $dest) {
 		if ($dest instanceof Dispatchable || $dest instanceof Closure) {
 			$this->prefixes[$prefix] = $dest;
@@ -47,21 +51,13 @@ class Dispatcher implements Dispatchable {
 				}
 			}
 		}
-		return $response;
-	}
 
-	public function staticfile($request, &$response) {
-		/* Static file handler */
-		$file = realpath("./{$request->getURI()}");
-
-		if ($file === FALSE || strpos($file, $this->path) !== 0) {
-			$response->setStatusCode(HTTP::STATUS_NOT_FOUND);
-			$response->setContent("Duh, Not Found");
-		} elseif (is_dir($file)) {
-			$response->setContent("Directory listing denied");
-		} else {
-			$response->setContent(file_get_contents($file));
+		if (!isset($response)) {
+			$response = new Response($request);
+			$response->setStatusCode(HTTP::STATUS_INTERNAL_SERVER_ERROR);
+			$response->setContent("Internal Server Error: No handler for URI");
 		}
-		return TRUE;
+
+		return $response;
 	}
 }
