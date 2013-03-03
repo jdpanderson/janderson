@@ -19,10 +19,12 @@ class JSONRPCDispatcher implements Dispatchable {
 	const ERR_INTERNAL         = -32603; /* Internal error: Internal JSON-RPC error. */
 
 	protected $services = array();
+	protected $reflection = array();
 
 	public function __construct($services = array()) {
 		foreach ($services as $service) {
 			$this->services[get_class($service)] = $service;
+			$this->reflection[get_class($service)] = new ReflectionObject($service);
 		}
 	}
 
@@ -107,9 +109,16 @@ class JSONRPCDispatcher implements Dispatchable {
 		}
 
 		try {
-			$result['result'] = $service->$method($params);
+			if (is_array($reqObj->params)) {
+				$reflection = $this->reflection[get_class($service)];
+				$result['result'] = $reflection->getMethod($method)->invokeArgs($service, $reqObj->params);
+			} elseif (is_object($reqObj->params)) {
+				$result['result'] = $service->$method($reqObj->params);
+			} else {
+				$result['error'] = array('code' => self::ERR_INVALID_PARAMS, 'message' => 'Invalid Params');
+			}
 		} catch (\Exception $e) {
-
+			$result['error'] = array('code' => $e->getCode(), 'message' => $e->getMessage());
 		}
 		return isset($reqObj->id) ? $result : NULL;
 	}
