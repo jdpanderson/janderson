@@ -8,7 +8,11 @@ use \janderson\net\socket\server\Dispatchable;
 use \Closure;
 
 /**
- * Dispatcher
+ * Dispatches an HTTP request to a prefix-specific destination, usually a callback or another dispatcher.
+ *
+ * The destination must be either net\socket\server\Dispatchable or a callback.
+ *
+ * The callback must accept parameters ($request, &$response)
  */
 class Dispatcher implements Dispatchable {
 	protected $prefixes = array();
@@ -25,6 +29,10 @@ class Dispatcher implements Dispatchable {
 		return FALSE;
 	}
 
+	/**
+	 * @param Request $request
+	 * @return Response
+	 */
 	public function dispatch($request) {
 		/* A Trie would do this nicely, and would probably be faster. */
 		foreach ($this->prefixes as $prefix => $dest) {
@@ -33,13 +41,11 @@ class Dispatcher implements Dispatchable {
 					if ($dest instanceof Dispatchable) {
 						$response = $dest->dispatch($request);
 					} elseif ($dest instanceof Closure || (is_object($dest) && method_exists($dest, '__invoke'))) {
-						$response = $dest($request);
-					}
-
-					if (!($response instanceof Response)) {
 						$response = new Response($request);
-						$response->setStatusCode(HTTP::STATUS_INTERNAL_SERVER_ERROR);
-						$response->setContent("Internal Server Error: Request Processing Failure");
+						$dest($request, $response);
+					} elseif (is_callable($dest)) {
+						$response = new Response($request);
+						call_user_func($dest, $request, $response);
 					}
 				} catch (Exception $e) {
 					$response = new Response($request);
@@ -52,10 +58,10 @@ class Dispatcher implements Dispatchable {
 			}
 		}
 
-		if (!isset($response)) {
+		if (!($response instanceof Response)) {
 			$response = new Response($request);
 			$response->setStatusCode(HTTP::STATUS_INTERNAL_SERVER_ERROR);
-			$response->setContent("Internal Server Error: No handler for URI");
+			$response->setContent("Internal Server Error: Request Processing Failure");
 		}
 
 		return $response;

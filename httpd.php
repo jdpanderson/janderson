@@ -27,8 +27,13 @@ $socket = new Handler();
 $socket->setBlocking(FALSE);
 $socket->listen(100, Socket::ADDR_ANY, 8080);
 
+$svc = function($request, &$response) {
+	$response->setContent(json_encode(array()));
+};
+
 $dispatcher = new Dispatcher(array(
-	'/js' => new StaticDispatcher()
+	'/js'  => new StaticDispatcher(),
+	'/svc' => $svc
 ));
 
 $svr = new Server($socket, $dispatcher);

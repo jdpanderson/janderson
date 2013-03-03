@@ -51,6 +51,14 @@ class Request {
 		return isset($this->headers['content-length']) ? (int)$this->headers['content-length'] : 0;
 	}
 
+	public function getMethod() {
+		return $this->method;
+	}
+
+	public function getURI() {
+		return $this->uri;
+	}
+
 	/**
 	 * Get a string representing the HTTP version, typically "1.0" or "1.1", but may rarely be "0.9"
 	 *
@@ -60,7 +68,5 @@ class Request {
 		return $this->version;
 	}
 
-	public function getURI() {
-		return $this->uri;
-	}
+
 }
