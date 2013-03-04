@@ -25,12 +25,18 @@ use janderson\net\http\JSONRPCDispatcher;
 use janderson\net\socket\Socket;
 use janderson\net\socket\server\Server;
 
+class TestService {
+	public function test() {
+		return "this is a test";
+	}
+}
+
 $socket = new Handler();
 $socket->setBlocking(FALSE);
 $socket->listen(100, Socket::ADDR_ANY, 8080);
 
 $dispatcher = new Dispatcher(array(
-	'/service/' => new JSONRPCDispatcher(),
+	'/service/' => new JSONRPCDispatcher(array(new TestService())),
 	'/'         => new StaticDispatcher('/Users/janderson/public_html/blog/')
 ));
 

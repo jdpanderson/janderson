@@ -31,8 +31,9 @@ class JSONRPCDispatcher implements Dispatchable {
 
 	public function __construct($services = array()) {
 		foreach ($services as $service) {
-			$this->services[get_class($service)] = $service;
-			$this->reflection[get_class($service)] = new ReflectionObject($service);
+			$className = array_pop(explode("\\", get_class($service)));
+			$this->services[$className] = $service;
+			$this->reflection[$className] = new \ReflectionObject($service);
 		}
 	}
 
@@ -91,7 +92,7 @@ class JSONRPCDispatcher implements Dispatchable {
 	 */
 	protected function callService($service, $reqObj) {
 		$result = array(); /* json_encode encodes associative arrays as objects. */
-		$service = $this->services[$service];
+		//$service = $this->services[$service];
 
 		if (isset($reqObj->id) && is_int($reqObj->id)) {
 			$result['id'] = $reqObj->id;
@@ -104,7 +105,7 @@ class JSONRPCDispatcher implements Dispatchable {
 
 		/* Check if the service is known. Error out if it's not. */
 		if (!isset($this->services[$service])) {
-			$result['error'] = array('code' => self::ERR_METHOD_NOT_FOUND, 'message' => 'Method not found');
+			$result['error'] = array('code' => self::ERR_METHOD_NOT_FOUND, 'message' => 'Service/Method not found');
 			return isset($reqObj->id) ? $result : NULL;
 		}
 
@@ -113,6 +114,7 @@ class JSONRPCDispatcher implements Dispatchable {
 			return isset($reqObj->id) ? $result : NULL;
 		}
 
+		$reflection = $this->reflection[$service];
 		$service = $this->services[$service];
 		$method = $reqObj->method;
 
@@ -123,7 +125,7 @@ class JSONRPCDispatcher implements Dispatchable {
 
 		try {
 			if (is_array($reqObj->params)) {
-				$result['result'] = $this->reflection[$service]->getMethod($method)->invokeArgs($service, $reqObj->params);
+				$result['result'] = $reflection->getMethod($method)->invokeArgs($service, $reqObj->params);
 			} elseif (is_object($reqObj->params)) {
 				$result['result'] = $service->$method($reqObj->params);
 			} else {
