@@ -28,6 +28,10 @@ class Request {
 		$this->content = $content;
 	}
 
+	public function setContent($content) {
+		$this->content = $content;
+	}
+
 	public function setHeaders($headers = array()) {
 		$this->headers = $headers;
 	}
@@ -49,6 +53,10 @@ class Request {
 	 */
 	public function getContentLength() {
 		return isset($this->headers['content-length']) ? (int)$this->headers['content-length'] : 0;
+	}
+
+	public function getContent() {
+		return $this->content;
 	}
 
 	public function getMethod() {

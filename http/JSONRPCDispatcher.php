@@ -5,6 +5,7 @@
 namespace janderson\net\http;
 
 use \janderson\net\socket\server\Dispatchable;
+
 /**
  * JSONRPCDispatcher
  */
@@ -18,7 +19,14 @@ class JSONRPCDispatcher implements Dispatchable {
 	const ERR_INVALID_PARAMS   = -32602; /* Invalid params: Invalid method parameter(s). */
 	const ERR_INTERNAL         = -32603; /* Internal error: Internal JSON-RPC error. */
 
+	/**
+	 * @var mixed[]
+	 */
 	protected $services = array();
+
+	/**
+	 * @var ReflectionObject[]
+	 */
 	protected $reflection = array();
 
 	public function __construct($services = array()) {
@@ -46,15 +54,6 @@ class JSONRPCDispatcher implements Dispatchable {
 		if (($dotpos = strrpos($service, '.')) !== FALSE) {
 			$service = substr($service, 0, $dotpos);
 		}
-
-		/* Check if the service is known. Error out if it's not. */
-		if (!isset($this->services[$service])) {
-			$response->setContent(json_encode(array(
-				'error' => array('code' => self::ERR_METHOD_NOT_FOUND, 'message' => 'Method not found')
-			)));
-			return $response;
-		}
-		$service = $this->services[$service];
 
 		if (!($obj = json_decode($request->getContent()))) {
 			$response->setContent(json_encode(array(
@@ -84,8 +83,15 @@ class JSONRPCDispatcher implements Dispatchable {
 		return $response;
 	}
 
+	/**
+	 *
+	 * @param mixed $service
+	 * @param $reqObj
+	 * @return array|null
+	 */
 	protected function callService($service, $reqObj) {
 		$result = array(); /* json_encode encodes associative arrays as objects. */
+		$service = $this->services[$service];
 
 		if (isset($reqObj->id) && is_int($reqObj->id)) {
 			$result['id'] = $reqObj->id;
@@ -96,11 +102,18 @@ class JSONRPCDispatcher implements Dispatchable {
 			$result['jsonrpc'] = '2.0';
 		}
 
+		/* Check if the service is known. Error out if it's not. */
+		if (!isset($this->services[$service])) {
+			$result['error'] = array('code' => self::ERR_METHOD_NOT_FOUND, 'message' => 'Method not found');
+			return isset($reqObj->id) ? $result : NULL;
+		}
+
 		if (empty($reqObj->method)) {
 			$result['error'] = array('code' => self::ERR_INVALID_REQUEST, 'message' => 'Invalid Request');
 			return isset($reqObj->id) ? $result : NULL;
 		}
 
+		$service = $this->services[$service];
 		$method = $reqObj->method;
 
 		if (!is_callable(array($service, $method))) {
@@ -110,8 +123,7 @@ class JSONRPCDispatcher implements Dispatchable {
 
 		try {
 			if (is_array($reqObj->params)) {
-				$reflection = $this->reflection[get_class($service)];
-				$result['result'] = $reflection->getMethod($method)->invokeArgs($service, $reqObj->params);
+				$result['result'] = $this->reflection[$service]->getMethod($method)->invokeArgs($service, $reqObj->params);
 			} elseif (is_object($reqObj->params)) {
 				$result['result'] = $service->$method($reqObj->params);
 			} else {

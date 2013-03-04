@@ -92,11 +92,13 @@ class Handler extends Socket implements IHandler {
 
 	public function sendResponse() {
 		if (empty($this->buf)) {
-			if (!($this->response instanceof Response)) {
-				debug_print_backtrace();
-			}
+			//if (!($this->response instanceof Response)) {
+			//	debug_print_backtrace();
+			//}
 			list($this->buf, $this->buflen) = $this->response->getBuffer();
 			$this->bufrem = $this->buflen;
+
+			//echo "Sending buffer: $this->buf\n";
 		}
 
 		$bufpos = $this->buflen - $this->bufrem;
@@ -124,13 +126,16 @@ class Handler extends Socket implements IHandler {
 
 		do {
 			$readlen = min(self::BUF_LEN, $length - $this->buflen); /* Bytes left to read */
-
+			echo "$this->buf";
 			list($buf, $buflen) = $this->recv($readlen, MSG_DONTWAIT);
 
 			$this->buf .= $buf;
 			$this->buflen += $buflen;
 
 			if ($this->buflen == $length) {
+				$this->request->setContent($this->buf);
+				$this->buf = "";
+				$this->buflen = 0;
 				$this->flags |= self::FLAG_READ_COMPLETE;
 				return TRUE;
 			}
@@ -166,6 +171,7 @@ class Handler extends Socket implements IHandler {
 					$this->buflen += $buflen;
 					$this->headers = explode($eol, $this->buf);
 					$this->buf = "";
+					$this->buflen = 0;
 
 					$this->parseRequest();
 					$this->flags |= self::FLAG_READ_HEADERS;

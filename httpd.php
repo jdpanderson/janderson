@@ -15,11 +15,13 @@ require __DIR__ . "/http/Request.php";
 require __DIR__ . "/http/Response.php";
 require __DIR__ . "/http/Dispatcher.php";
 require __DIR__ . "/http/StaticDispatcher.php";
+require __DIR__ . "/http/JSONRPCDispatcher.php";
 require __DIR__ . "/http/Handler.php";
 
 use janderson\net\http\Handler as Handler;
 use janderson\net\http\Dispatcher;
 use janderson\net\http\StaticDispatcher;
+use janderson\net\http\JSONRPCDispatcher;
 use janderson\net\socket\Socket;
 use janderson\net\socket\server\Server;
 
@@ -27,13 +29,9 @@ $socket = new Handler();
 $socket->setBlocking(FALSE);
 $socket->listen(100, Socket::ADDR_ANY, 8080);
 
-$svc = function($request, &$response) {
-	$response->setContent(json_encode(array()));
-};
-
 $dispatcher = new Dispatcher(array(
-	'/js'  => new StaticDispatcher(),
-	'/svc' => $svc
+	'/service/' => new JSONRPCDispatcher(),
+	'/'         => new StaticDispatcher('/Users/janderson/public_html/blog/')
 ));
 
 $svr = new Server($socket, $dispatcher);

@@ -55,6 +55,7 @@ class Dispatcher implements Dispatchable {
 					$response->setStatusCode(HTTP::STATUS_INTERNAL_SERVER_ERROR);
 					$response->setContent("Internal Server Error");
 				}
+				break;
 			}
 		}
 
