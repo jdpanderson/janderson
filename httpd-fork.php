@@ -52,4 +52,20 @@ $dispatcher = new Dispatcher(array(
 ));
 
 $svr = new Server($socket, $dispatcher);
-$svr->run();
+
+for ($i = 0; $i < 4; $i++) {
+	switch (pcntl_fork()) {
+		case 0:
+			echo "Child $i running..\n";
+			$svr->run();
+			break;
+
+		case -1:
+			echo "Error.";
+			exit(0);
+
+		default:
+			echo "Parent: just sleeping.";
+			sleep(30000);
+	}
+}
