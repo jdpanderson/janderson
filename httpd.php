@@ -48,7 +48,7 @@ $socket->listen(100, Socket::ADDR_ANY, 8080);
 
 $dispatcher = new Dispatcher(array(
 	'/service/' => new JSONRPCDispatcher(array(new BlogService())),
-	'/'         => new StaticDispatcher('/Users/janderson/public_html/blog/')
+	'/'         => new StaticDispatcher('/home/janderson/public_html/blog/')
 ));
 
 $svr = new Server($socket, $dispatcher);

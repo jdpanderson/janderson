@@ -15,6 +15,9 @@ class Server {
 		error_log($message);
 	}
 
+	protected function lock() { return TRUE; }
+	protected function unlock() { return TRUE; }
+
 	/**
 	 * @param int $port
 	 * @throws Exception An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
@@ -84,9 +87,14 @@ class Server {
 
 			foreach ($rready as $socket) {
 				if ($socket === $this->socket) {
+					if (!$this->lock()) {
+						continue;
+					}
 					try {
 						$child = $socket->accept();
-					} catch (Exception $e) {
+						$this->unlock();
+					} catch (\Exception $e) {
+						$this->unlock();
 						$this->log("Failed to accept remote socket.");
 						continue;
 					}

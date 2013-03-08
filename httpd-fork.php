@@ -9,7 +9,9 @@ require __DIR__ . "/socket/Exception.php";
 require __DIR__ . "/socket/server/Handler.php";
 require __DIR__ . "/socket/server/Dispatchable.php";
 require __DIR__ . "/socket/server/Server.php";
+require __DIR__ . "/socket/server/ForkingServer.php";
 
+require __DIR__ . "/http/Exception.php";
 require __DIR__ . "/http/HTTP.php";
 require __DIR__ . "/http/Request.php";
 require __DIR__ . "/http/Response.php";
@@ -24,6 +26,7 @@ use janderson\net\http\StaticDispatcher;
 use janderson\net\http\JSONRPCDispatcher;
 use janderson\net\socket\Socket;
 use janderson\net\socket\server\Server;
+use janderson\net\socket\server\ForkingServer;
 
 class BlogEntry {
 	public $author = "J. Anderson";
@@ -48,24 +51,8 @@ $socket->listen(100, Socket::ADDR_ANY, 8080);
 
 $dispatcher = new Dispatcher(array(
 	'/service/' => new JSONRPCDispatcher(array(new BlogService())),
-	'/'         => new StaticDispatcher('/Users/janderson/public_html/blog/')
+	'/'         => new StaticDispatcher('/home/janderson/public_html/blog/')
 ));
 
-$svr = new Server($socket, $dispatcher);
-
-for ($i = 0; $i < 4; $i++) {
-	switch (pcntl_fork()) {
-		case 0:
-			echo "Child $i running..\n";
-			$svr->run();
-			break;
-
-		case -1:
-			echo "Error.";
-			exit(0);
-
-		default:
-			echo "Parent: just sleeping.";
-			sleep(30000);
-	}
-}
+$svr = new ForkingServer($socket, $dispatcher);
+$svr->run();
