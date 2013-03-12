@@ -5,16 +5,23 @@ namespace janderson\net\socket\server;
 use \janderson\net\socket\Socket;
 
 class ForkingServer extends Server {
+	const KEY_LOCK = "ForkingServer::socketlock";
+	const KEY_SERIAL = "ForkingServer::socketserial";
+
 	protected $locked = FALSE;
+	protected $serial;
 
 	protected function lock() {
-		$value = apc_inc("FS::lock");
+		$value = apc_inc(self::KEY_LOCK);
 
 		if ($value === 1) {
 			$this->locked = TRUE;
 			return TRUE;
 		} elseif ($value !== FALSE) {
-			apc_dec("FS::lock");
+			while (!apc_dec(self::KEY_LOCK)) {
+				$this->log('Warning: Cleaning up after lock failure failed. Will retry.');
+				sleep(1);
+			}
 		}
 
 		return FALSE;
@@ -25,15 +32,39 @@ class ForkingServer extends Server {
 			return FALSE;
 		}
 
-		$value = apc_dec("FS::lock");
-		
-		if ($value === FALSE) {
-			$this->log("Massive problem: unlocking failed. We're probably going to zombify! Bailing out instead!");
-			exit(0);
+		while (!apc_dec(self::KEY_LOCK)) {
+			$this->log('Warning: Unlocking failed. Will retry.');
+			sleep(1);
 		}
 
 		$this->locked = FALSE;
 		return TRUE;
+	}
+
+	protected function select() {
+		$this->lock();
+		$this->serial = apc_fetch(self::KEY_SERIAL);
+		$this->unlock();
+
+		return parent::select();
+	}
+
+	protected function accept() {
+		$return = array(0, array(), array(), array());
+
+		if (is_int($this->serial)) {
+			$this->lock();
+			if ($this->serial ===  apc_fetch(self::KEY_SERIAL)) {
+				while (!apc_inc(self::KEY_SERIAL)) {
+					$this->log('Warning: Failed to increment serial. Will retry.');
+					sleep(1);
+				}
+				$return = parent::accept();
+			}
+			$this->unlock();
+		}
+
+		return $return;
 	}
 
 	public function run() {
@@ -44,7 +75,8 @@ class ForkingServer extends Server {
 		}
 
 		$parent = FALSE;
-		apc_store("FS::lock", 0);
+		apc_store(self::KEY_LOCK, 0);
+		apc_store(self::KEY_SERIAL, 1);
 		for ($i = 0; $i < 2; $i++) {
 			switch (pcntl_fork()) {
 				case -1: /* Error */

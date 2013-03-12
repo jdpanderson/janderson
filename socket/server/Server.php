@@ -7,6 +7,7 @@ use \janderson\net\socket\Socket;
 class Server {
 	protected $port;
 	protected $socket;
+	protected $stop = FALSE;
 
 	protected $readers = array();
 	protected $writers = array();
@@ -14,9 +15,6 @@ class Server {
 	protected function log($message) {
 		error_log($message);
 	}
-
-	protected function lock() { return TRUE; }
-	protected function unlock() { return TRUE; }
 
 	/**
 	 * @param int $port
@@ -30,21 +28,11 @@ class Server {
 		$this->dispatcher = $dispatcher;
 	}
 
-	protected function dispatch($request) {
-		$response = new Response($request);
-		$response->setContent('This is a test');
-		return $response;
-	}
-
 	public function run() {
 		$this->stop = FALSE;
 
 		while (!$this->stop) {
-			$rready = array_merge(array($this->socket), $this->readers);
-			$wready = $this->writers;
-			$err = array_merge($rready, $wready);
-
-			$num = $this->socket->select($rready, $wready, $err, 5);
+			list($num, $rready, $wready, $err) = $this->select();
 
 			if (!$num) {
 				$this->log(sprintf("No sockets ready to read. %d/%d pending readers/writers. Continuing.", count($this->readers), count($this->writers)));
@@ -63,65 +51,78 @@ class Server {
 			}
 
 			foreach ($wready as $socket) {
-				try {
-					$writeComplete = $socket->sendResponse();
-				} catch (Exception $e) {
-					$this->log("Exception caught while writing request: {$e->getMessage()}");
-				}
-
-				if ($writeComplete === FALSE) continue;
-
-				if ($writeComplete) {
-					if ($socket->shouldClose()) {
-						$socket->close();
-					} else {
-						$this->readers[] = $socket;
-					}
-				} elseif ($writeComplete === NULL) {
-					$socket->close();
-				}
-
-				$writer_id = array_search($socket, $this->writers);
-				unset($this->writers[$writer_id]);
+				$this->write($socket);
 			}
 
 			foreach ($rready as $socket) {
 				if ($socket === $this->socket) {
-					if (!$this->lock()) {
-						continue;
-					}
-					try {
-						$child = $socket->accept();
-						$this->unlock();
-					} catch (\Exception $e) {
-						$this->unlock();
-						$this->log("Failed to accept remote socket.");
-						continue;
-					}
-					$child->setBlocking(FALSE);
-					$this->readers[] = $child;
+					$this->accept();
 				} else {
-					try {
-						$readComplete = $socket->readRequest();
-					} catch (Exception $e) {
-						$this->log("Exception caught while reading request: {$e->getMessage()}");
-					}
-
-					if ($readComplete === FALSE) continue;
-
-					$reader_id = array_search($socket, $this->readers);
-					unset($this->readers[$reader_id]);
-
-					if ($readComplete) {
-						/* Successfully read a request. Dispatch and respond. */
-						$socket->setResponse($this->dispatcher->dispatch($socket->getRequest()));
-						$this->writers[] = $socket;
-					} elseif ($readComplete === NULL) {
-						/* Exception caught during readRequest, or abnormal socket closure (usually remote) */
-						$socket->close();
-					}
+					$this->read($socket);
 				}
 			}
 		}
+
+	}
+
+	protected function select() {
+		$rready = array_merge(array($this->socket), $this->readers);
+		$wready = $this->writers;
+		$err = array_merge($rready, $wready);
+
+		$num = $this->socket->select($rready, $wready, $err, 5);
+
+		return array($num, $rready, $wready, $err);
+	}
+
+	protected function accept() {
+		try {
+			$child = $this->socket->accept();
+		} catch (\Exception $e) {
+			$this->log("Failed to accept remote socket.");
+			return;
+		}
+
+		$child->setBlocking(FALSE);
+		$this->readers[] = $child;
+	}
+
+	protected function read(Socket &$socket) {
+		try {
+			$readComplete = $socket->readRequest();
+		} catch (Exception $e) {
+			$this->log("Exception caught while reading request: {$e->getMessage()}");
+		}
+
+		if ($readComplete === FALSE) {
+			return;
+		} elseif ($readComplete) {
+			$socket->setResponse($this->dispatcher->dispatch($socket->getRequest()));
+			$this->writers[] = $socket;
+		} elseif ($readComplete === NULL) {
+			$socket->close();
+		}
+
+		$reader_id = array_search($socket, $this->readers);
+		unset($this->readers[$reader_id]);
+	}
+
+	protected function write(Socket &$socket) {
+		try {
+			$writeComplete = $socket->sendResponse();
+		} catch (Exception $e) {
+			$this->log("Exception caught while writing request: {$e->getMessage()}");
+		}
+
+		if ($writeComplete === FALSE) {
+			return;
+		} elseif ($writeComplete) {
+			$this->readers[] = $socket;
+		} elseif ($writeComplete === NULL) {
+			$socket->close();
+		}
+
+		$writer_id = array_search($socket, $this->writers);
+		unset($this->writers[$writer_id]);
 	}
 }
