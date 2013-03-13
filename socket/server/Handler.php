@@ -42,9 +42,4 @@ interface Handler {
 	 * @return resource The socket resource that belongs to this class.
 	 */
 	public function getResource();
-
-	/**
-	 * For stream sockets, this indicates that the protocol dictates that the socket should close.
-	 */
-	public function shouldClose();
 }

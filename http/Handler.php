@@ -108,14 +108,11 @@ class Handler extends Socket implements IHandler {
 
 		if (!$this->bufrem) {
 			$this->flags |= self::FLAG_CLOSE;
-			return TRUE;
+			/* Return NULL if we're supposed to close, otherwise return true to switch back to read mode. */
+			return ($this->flags & self::FLAG_CLOSE) ? NULL : TRUE;
 		}
 
 		return FALSE;
-	}
-
-	public function shouldClose() {
-		return (bool)($this->flags & self::FLAG_CLOSE);
 	}
 
 	private function readData() {
