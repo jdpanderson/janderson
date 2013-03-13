@@ -10,6 +10,7 @@ class ForkingServer extends Server {
 
 	protected $locked = FALSE;
 	protected $serial;
+	protected $child_id;
 
 	protected function lock() {
 		$value = apc_inc(self::KEY_LOCK);
@@ -18,7 +19,7 @@ class ForkingServer extends Server {
 			$this->locked = TRUE;
 			return TRUE;
 		} elseif ($value !== FALSE) {
-			while (!apc_dec(self::KEY_LOCK)) {
+			while (apc_dec(self::KEY_LOCK) === FALSE) {
 				$this->log('Warning: Cleaning up after lock failure failed. Will retry.');
 				sleep(1);
 			}
@@ -32,7 +33,7 @@ class ForkingServer extends Server {
 			return FALSE;
 		}
 
-		while (!apc_dec(self::KEY_LOCK)) {
+		while (apc_dec(self::KEY_LOCK) === FALSE) {
 			$this->log('Warning: Unlocking failed. Will retry.');
 			sleep(1);
 		}
@@ -42,7 +43,9 @@ class ForkingServer extends Server {
 	}
 
 	protected function select() {
-		$this->lock();
+		while (!$this->lock()) {
+			usleep(1000);
+		}
 		$this->serial = apc_fetch(self::KEY_SERIAL);
 		$this->unlock();
 
@@ -53,12 +56,16 @@ class ForkingServer extends Server {
 		$return = array(0, array(), array(), array());
 
 		if (is_int($this->serial)) {
-			$this->lock();
+			if (!$this->lock()) {
+				return $return;
+			}
+
 			if ($this->serial ===  apc_fetch(self::KEY_SERIAL)) {
-				while (!apc_inc(self::KEY_SERIAL)) {
+				while (apc_inc(self::KEY_SERIAL) === FALSE) {
 					$this->log('Warning: Failed to increment serial. Will retry.');
 					sleep(1);
 				}
+				$this->log("Child {$this->child_id} accepting.");
 				$return = parent::accept();
 			}
 			$this->unlock();
@@ -74,27 +81,26 @@ class ForkingServer extends Server {
 			return;
 		}
 
-		$parent = FALSE;
 		apc_store(self::KEY_LOCK, 0);
 		apc_store(self::KEY_SERIAL, 1);
-		for ($i = 0; $i < 2; $i++) {
+		for ($i = 0; $i < 4; $i++) {
 			switch (pcntl_fork()) {
 				case -1: /* Error */
 					$this->log("Fork failure.");
 					return;
 
 				case 0:  /* Child */
+					$this->child_id = $i;
 					echo "Child $i running...\n";
 					parent::run();
 					break;
 
-				default: /* Parent */
-					$parent = TRUE;
+				default: /* Parent. Do nothing yet. */
 					break;
 			}
 		}
 
-		if ($parent) {
+		if ($this->child_id === NULL) {
 			echo "Parent going to sleep as a proof of concept.\n";
 			sleep(1000);
 		}
