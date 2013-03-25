@@ -4,6 +4,8 @@
  */
 namespace janderson\net\http;
 
+use janderson\net\socket\Server;
+use janderson\net\Buffer;
 use janderson\net\http\Request;
 use janderson\net\http\Response;
 use janderson\net\socket\Socket;
@@ -12,7 +14,7 @@ use janderson\net\socket\server\Handler as IHandler;
 /**
  * Implements an HTTPHandler Socket class.
  */
-class Handler extends Socket implements IHandler {
+class Handler implements IHandler {
 	const EOL = "\r\n";
 	const BUF_LEN = 4096;
 
@@ -53,11 +55,62 @@ class Handler extends Socket implements IHandler {
 	protected $buflen = 0;
 
 	/**
+	 * Read/recv buffer
+	 *
+	 * @var Buffer
+	 */
+	protected $rbuf;
+
+	/**
+	 * Write/send buffer
+	 *
+	 * @var Buffer
+	 */
+	protected $wbuf;
+
+	/**
 	 * The length of the buffer left to send.
 	 *
 	 * @var int
 	 */
 	protected $bufrem;
+
+	public function __construct() {
+		$this->rbuf = new Buffer();
+		$this->wbuf = new Buffer();
+	}
+
+	public function getState() {
+		$state = 0;
+
+		if ($this->wbuf->length - $this->wbuf->position) {
+			$state |= Server::STATE_WR;
+		} else {
+			$state |= Server::STATE_RD;
+		}
+
+		return $state;
+	}
+
+	public function read(Socket &$socket) {
+
+	}
+
+	public function write(Socket &$socket) {
+		do {
+			$chunk = min($this->wbuf->length - $this->wbuf->position, self::BUF_LEN);
+
+			/* Clear the write buffer and return now if there's nothing more to write. */
+			if (!$chunk) {
+				$this->wbuf->clear();
+				return;
+			}
+
+			$sent = $socket->send(substr($this->wbuf->buffer, $this->wbuf->position, $chunk), $chunk);
+
+			$this->wbuf->position += $sent;
+		} while ($sent >= $chunk);
+	}
 
 	public function getRequest() {
 		return $this->request;

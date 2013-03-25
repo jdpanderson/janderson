@@ -4,42 +4,37 @@
  */
 namespace janderson\net\socket\server;
 
+use janderson\net\socket\Socket;
+
 /**
  * An interface to be implemented by protocol handlers that sit on top of sockets.
  */
 interface Handler {
 	/**
-	 * Returns the request as read by the protocol handler.
+	 * Get the current read/write state.
 	 *
-	 * @return mixed
-	 */
-	public function getRequest();
-
-	/**
-	 * Sets the response to be sent via the protocol handler.
+	 * The state is expected to be an integer:
+	 * 1 -> Can read
+	 * 2 -> Can write
+	 * 3 -> Both
 	 *
-	 * @param $response
+	 * @return int Returns an integer identifying the current state, read-capable, write-capable, or both. NULL for close.
 	 */
-	public function setResponse($response);
+	public function getState();
 
 	/**
 	 * Sends data to a socket, letting the caller know if it should write, read, or close the socket.
 	 *
-	 * @return bool Returns true when ready to change to read state, or null if the connection should be closed.
+	 * @param Socket &$socket The socket to which the handler should write.
+	 * @return int Returns an integer identifying the current state, read-capable, write-capable, or both. NULL for close.
 	 */
-	public function sendResponse();
+	public function write(Socket &$socket);
 
 	/**
 	 * Reads data from a socket, letting the caller know if it should read, write, or close the socket.
 	 *
-	 * @return bool Returns true when ready to change to write state, or null if the connection should be closed.
+	 * @param Socket &$socket The socket from which the handler should read.
+	 * @return int Returns an integer identifying the current state, read-capable, write-capable, or both. NULL for close.
 	 */
-	public function readRequest();
-
-	/**
-	 * Get the socket resource, for use in socket_* functions.
-	 *
-	 * @return resource The socket resource that belongs to this class.
-	 */
-	public function getResource();
+	public function read(Socket &$socket);
 }

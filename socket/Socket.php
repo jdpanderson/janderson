@@ -275,12 +275,6 @@ class Socket {
 	 * @throws Exception
 	 */
 	public function getResourceId() {
-		$str = (string)$this->socket;
-
-		$tok = explode("#", $str, 2);
-
-		if (count($tok) != 2 || $tok[0] != "Resource id") throw new Exception("String format has changed: Cannot parse resource ID");
-
-		return (int)$tok[1];
+		return intval($this->socket);
 	}
 }

@@ -5,27 +5,34 @@ namespace janderson\net\socket\server;
 use \janderson\net\socket\Socket;
 
 class Server {
-	protected $port;
+	const STATE_RD = 1;
+	const STATE_WR = 2;
+	const STATE_RDWR = 3;
+
+	const SELECT_TIMEOUT = 1;
 	protected $socket;
+	protected $handlerClass;
+
 	protected $stop = FALSE;
 
-	protected $readers = array();
-	protected $writers = array();
+	protected $sockets = array();
+	protected $handlers = array();
 
 	protected function log($message) {
 		error_log($message);
 	}
 
 	/**
-	 * @param int $port
 	 * @throws Exception An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
 	 */
-	public function __construct(Socket $socket, Dispatchable $dispatcher) {
-		if (!($socket instanceof Handler)) {
-			throw new Exception("The socket must implement the handler interface");
-		}
+	public function __construct(Socket $socket, $handlerClass) {
 		$this->socket = $socket;
-		$this->dispatcher = $dispatcher;
+
+		if (!in_array('Handler', class_implements($handlerClass))) {
+			throw new Exception("Handler class must implement the Handler interface");
+		}
+
+		$this->handlerClass = $handlerClass;
 	}
 
 	public function run() {
@@ -34,20 +41,13 @@ class Server {
 		while (!$this->stop) {
 			list($num, $rready, $wready, $err) = $this->select();
 
+			/* No sockets ready to read/write, probably hit the select timeout.  */
 			if (!$num) {
-				$this->log(sprintf("No sockets ready to read. %d/%d pending readers/writers. Continuing.", count($this->readers), count($this->writers)));
 				continue;
 			}
 
 			foreach ($err as $socket) {
-				$this->log("Socket $socket in error state. Closing.");
-				$socket->close();
-				if (($reader_id = array_search($socket, $this->readers)) !== FALSE) {
-					unset($this->readers[$reader_id]);
-				}
-				if (($writer_id = array_search($socket, $this->writers)) !== FALSE) {
-					unset($this->writers[$writer_id]);
-				}
+				$this->error($socket);
 			}
 
 			foreach ($wready as $socket) {
@@ -65,64 +65,59 @@ class Server {
 
 	}
 
+	protected function error(&$socket) {
+		$this->log("Socket $socket in error state. Closing.");
+		$this->close($socket);
+	}
+
 	protected function select() {
-		$rready = array_merge(array($this->socket), $this->readers);
-		$wready = $this->writers;
-		$err = array_merge($rready, $wready);
+		$rd = array($this->socket);
+		$wr = array();
+		$err = array();
+		foreach ($this->sockets as $socket) {
+			$state = $this->handlers[$socket->getResourceId()]->getState();
 
-		$num = $this->socket->select($rready, $wready, $err, 5);
+			if ($state & Server::STATE_RD) $rd[] = $socket;
+			if ($state & Server::STATE_WR) $wr[] = $socket;
+			$err[] = $socket;
+		}
 
-		return array($num, $rready, $wready, $err);
+		$num = $this->socket->select($rd, $wr, $err, self::SELECT_TIMEOUT);
+
+		return array($num, $rd, $wr, $err);
 	}
 
 	protected function accept() {
 		try {
-			$child = $this->socket->accept();
+			$socket = $this->socket->accept();
 		} catch (\Exception $e) {
 			$this->log("Failed to accept remote socket.");
 			return;
 		}
 
-		$child->setBlocking(FALSE);
-		$this->readers[] = $child;
+		$socket->setBlocking(FALSE);
+		$handlerClass = $this->handlerClass;
+		$this->handlers[$socket->getResourceId()] = new $handlerClass();
 	}
 
 	protected function read(Socket &$socket) {
-		try {
-			$readComplete = $socket->readRequest();
-		} catch (Exception $e) {
-			$this->log("Exception caught while reading request: {$e->getMessage()}");
-		}
+		$handler = $this->handlers[$socket->getResourceId()];
 
-		if ($readComplete === FALSE) {
-			return;
-		} elseif ($readComplete) {
-			$socket->setResponse($this->dispatcher->dispatch($socket->getRequest()));
-			$this->writers[] = $socket;
-		} elseif ($readComplete === NULL) {
-			$socket->close();
+		if (!$handler->read($socket)) {
+			$this->close($socket);
 		}
-
-		$reader_id = array_search($socket, $this->readers);
-		unset($this->readers[$reader_id]);
 	}
 
 	protected function write(Socket &$socket) {
-		try {
-			$writeComplete = $socket->sendResponse();
-		} catch (Exception $e) {
-			$this->log("Exception caught while writing request: {$e->getMessage()}");
-		}
+		$handler = $this->handlers[$socket->getResourceId()];
 
-		if ($writeComplete === FALSE) {
-			return;
-		} elseif ($writeComplete) {
-			$this->readers[] = $socket;
-		} elseif ($writeComplete === NULL) {
-			$socket->close();
+		if (!$handler->write($socket)) {
+			$this->close($socket);
 		}
+	}
 
-		$writer_id = array_search($socket, $this->writers);
-		unset($this->writers[$writer_id]);
+	protected function close(&$socket) {
+		unset($this->handlers[$socket->getResourceId()]);
+		$socket->close();
 	}
 }
