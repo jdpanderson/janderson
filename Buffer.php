@@ -29,7 +29,42 @@ class Buffer {
 		$this->length += (is_int($len) && $len >= 0) ? $len : self::strlen($buf);
 	}
 
-	public function set($buf, $len = NULL) {
+	/**
+	 * Find a substring within the buffer
+	 *
+	 * @param $needle The substring for which to search.
+	 * @return int The position of the needle, or false on failure.
+	 */
+	public function find($needle) {
+		return self::strpos($this->buffer, $needle);
+	}
+
+	/**
+	 * Get a portion of the buffer, optionally clearing the retrieved portion.
+	 *
+	 * @param int $length
+	 * @param bool $clear
+	 */
+	public function get($length = NULL, $clear = FALSE) {
+		/* Clamp length between 0 and the length of the buffer. */
+		$length = max(min((int)$length, $this->length), 0);
+
+		$buf = self::substr($this->buffer, 0, $length);
+
+		if ($clear) {
+			$this->buffer = self::substr($this->buffer, $length);
+		}
+
+		return $buf;
+	}
+
+    /**
+     * Set the buffer contents.
+     *
+     * @param string $buf
+     * @param int $len
+     */
+    public function set($buf, $len = NULL) {
 		$this->buffer = $buf;
 		$this->length = (is_int($len) && $len >= 0) ? $len : self::strlen($buf);
 		$this->position = 0;
@@ -45,14 +80,16 @@ class Buffer {
 	}
 
 	/**
-	 * Get the byte length of a string. Tries to handle mbstring.func_overload safely and transparently.
+	 * Get the byte length of a string.
+	 *
+	 * Tries to handle mbstring.func_overload safely and transparently.
 	 *
 	 * @param string $str The string for which to check the length.
 	 * @return int The number of bytes in the string.
 	 */
 	public static function strlen($str) {
 		if (!isset(self::$overload)) {
-			self::$overload = function_exists('mb_internal_encoding') && ini_get("mbstring.func_overload") != "0";
+			self::$overload = extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2);
 		}
 
 		if (!self::$overload) {
@@ -65,18 +102,54 @@ class Buffer {
 		return $len;
 	}
 
-	public static function strpos($str, $start = 0, $length = NULL) {
+	/**
+	 * Get the position of a substring within a string.
+	 *
+	 * Tries to handle mbstring.func_overload safely and transparently.
+	 *
+	 * @param string $haystack The string in which we're searching.
+	 * @param string $needle The substring for which we're searching.
+	 * @param int $offset Start searching at offset.
+	 * @return int
+	 */
+	public static function strpos($haystack, $needle, $offset = 0) {
 		if (!isset(self::$overload)) {
-			self::$overload = function_exists('mb_internal_encoding') && ini_get("mbstring.func_overload") != "0";
+			self::$overload = extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2);
 		}
 
 		if (!self::$overload) {
-			return isset($length) ? strlen($str, $start, $length) : strlen($str, $start);
+			return strpos($haystack, $needle, $offset);
 		}
 
 		$enc = mb_internal_encoding('pass');
-		$str = isset($length) ? strlen($str, $start, $length) : strlen($str, $start);
+		$pos = strpos($haystack, $needle, $offset);
 		mb_internal_encoding($enc);
-		return $str;
+		return $pos;
+	}
+
+
+	/**
+	 * Extract a portion of a string.
+	 *
+	 * Tries to handle mbstring.func_overload safely and transparently.
+	 *
+	 * @param string $haystack The string in which we're searching.
+	 * @param string $needle The substring for which we're searching.
+	 * @param int $offset Start searching at offset.
+	 * @return int
+	 */
+	public static function substr($string, $start, $length = NULL) {
+		if (!isset(self::$overload)) {
+			self::$overload = extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2);
+		}
+
+		if (!self::$overload) {
+			return isset($length) ? substr($string, $start, $length) : substr($string, $start);
+		}
+
+		$enc = mb_internal_encoding('pass');
+		$pos = isset($length) ? substr($string, $start, $length) : substr($string, $start);
+		mb_internal_encoding($enc);
+		return $pos;
 	}
 }

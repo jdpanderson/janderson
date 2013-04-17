@@ -2,11 +2,13 @@
 /**
  * This file defines the BaseHandler interface
  */
+namespace janderson\net\socket\server;
 
 use janderson\net\Buffer;
+use janderson\net\socket\Socket;
 
 /**
- * BaseHandler
+ * BaseHandler: An example handler that echoes any data back to the client.
  */
 class BaseHandler implements Handler {
 	const BUF_MAX_LEN = 16777216; /* 16 MiB; 16 * 1024 * 1024 */
@@ -15,12 +17,16 @@ class BaseHandler implements Handler {
 	/**
 	 * Read/recv buffer
 	 *
+	 * Note: destroying this buffer will close the socket.
+	 *
 	 * @var Buffer
 	 */
 	protected $rbuf;
 
 	/**
 	 * Write/send buffer
+	 *
+	 * Note: destroying this buffer will close the socket.
 	 *
 	 * @var Buffer
 	 */
@@ -34,42 +40,71 @@ class BaseHandler implements Handler {
 		$this->wbuf = new Buffer();
 	}
 
+	/**
+	 * Get the current state of the handler
+	 *
+	 * For the base handler, if there's data in the write buffer that's write state. Anything else is read state. No buffers means we're done.
+	 *
+	 * @return int
+	 */
 	public function getState() {
-		if ($this->close) {
+		if (!isset($this->rbuf, $this->wbuf)) {
 			return NULL;
-		}
-
-		$state = 0;
-		if ($this->wbuf->length - $this->wbuf->position) {
-			$state |= Server::STATE_WR;
+		} elseif (($this->wbuf->length - $this->wbuf->position) > 0) {
+			return Server::STATE_WR;
 		} else {
-			$state |= Server::STATE_RD;
+			return Server::STATE_RD;
 		}
-
-		return $state;
 	}
 
+	/**
+	 * Perform a read cycle: read from the socket into the read buffer until no more data is available.
+	 *
+	 * @param Socket $socket
+	 * @return bool Returns true on success, or false on error.
+	 */
 	public function read(Socket &$socket) {
 		do {
+			/* Overrun the max read buffer. Have to exit. */
 			if ($this->rbuf->length > self::BUF_MAX_LEN) {
-				$this->close = TRUE;
-				return;
+				$this->rbuf = $this->wbuf = NULL;
+				return FALSE;
 			}
 
 			list($buf, $len) = $socket->recv(self::BUF_CHUNK_LEN);
 
+			/* 0-length read means the socket has been closed. */
+			// XXX FIXME : a single 0-length read is probably okay if the previous read worked (e.g. data the exact size of a chunk). It's likely only an issue if we get two 0's in a row or a 0 after select().
+			if ($len === 0) {
+				$this->rbuf = $this->wbuf = NULL;
+				return FALSE;
+			}
+
 			$this->rbuf->append($buf, $len);
 		} while ($len >= self::BUF_CHUNK_LEN);
 
-		$this->readComplete();
+		return $this->readComplete();
 	}
 
+	/**
+	 * Method executed when a read cycle is complete.
+	 *
+	 * @return bool Returns true on success, or false on error.
+	 */
 	protected function readComplete() {
-		/* As an example, just echo everything. */
+		/* As an example, just echo everything back to the client. */
 		$this->wbuf->set($this->rbuf->buffer, $this->rbuf->length);
 		$this->rbuf->clear();
+
+		return TRUE;
 	}
 
+	/**
+	 * Perform a write cycle: write to the socket from the write buffer until no more data can be written.
+	 *
+	 * @param Socket $socket
+	 * @return bool Returns true on success, or false on error.
+	 */
 	public function write(Socket &$socket) {
 		do {
 			$chunk = min($this->wbuf->length - $this->wbuf->position, self::BUF_CHUNK_LEN);
@@ -77,7 +112,7 @@ class BaseHandler implements Handler {
 			/* Clear the write buffer and return now if there's nothing more to write. */
 			if ($chunk <= 0) {
 				$this->wbuf->clear();
-				return;
+				return TRUE;
 			}
 
 			$sent = $socket->send(substr($this->wbuf->buffer, $this->wbuf->position, $chunk), $chunk);
@@ -85,13 +120,20 @@ class BaseHandler implements Handler {
 			$this->wbuf->position += $sent;
 		} while ($sent >= $chunk);
 
-		$this->writeComplete();
+		return $this->writeComplete();
 	}
 
+	/**
+	 * Method executed when a write cycle is complete.
+	 *
+	 * @return bool Returns true on success, or false on error.
+	 */
 	protected function writeComplete() {
 		/* As an example, just clear the write buffer once it's been written. */
 		if ($this->wbuf->position >= $this->wbuf->length) {
 			$this->wbuf->clear();
 		}
+
+		return TRUE;
 	}
 }

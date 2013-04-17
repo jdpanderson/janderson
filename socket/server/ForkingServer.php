@@ -3,51 +3,44 @@
 namespace janderson\net\socket\server;
 
 use \janderson\net\socket\Socket;
+use \janderson\net\lock\APCLock;
+use \janderson\net\lock\IPCLock;
 
 class ForkingServer extends Server {
-	const KEY_LOCK = "ForkingServer::socketlock";
 	const KEY_SERIAL = "ForkingServer::socketserial";
 
 	protected $locked = FALSE;
+
+	/**
+	 * In future, should be used to signal all processes to stop.
+	 *
+	 * @var \janderson\net\lock\Lock;
+	 */
+	protected $kill;
+    protected $lock;
 	protected $serial;
 	protected $child_id;
 
-	protected function lock() {
-		$value = apc_inc(self::KEY_LOCK);
-
-		if ($value === 1) {
-			$this->locked = TRUE;
-			return TRUE;
-		} elseif ($value !== FALSE) {
-			while (apc_dec(self::KEY_LOCK) === FALSE) {
-				$this->log('Warning: Cleaning up after lock failure failed. Will retry.');
-				sleep(1);
-			}
+	public function __construct(Socket $socket, $handlerClass) {
+		foreach (array('\\janderson\\net\\lock\\IPCLock', '\\janderson\\net\\lock\\APCLock') as $lockImpl) {
+			try {
+				$this->lock = new $lockImpl();
+				$this->kill = new $lockImpl();
+				break;
+			} catch (LockException $e) {}
 		}
 
-		return FALSE;
-	}
-
-	protected function unlock() {
-		if (!$this->locked) {
-			return FALSE;
+		if (!isset($this->lock)) {
+			throw new Exception("Unable to create lock.");
 		}
 
-		while (apc_dec(self::KEY_LOCK) === FALSE) {
-			$this->log('Warning: Unlocking failed. Will retry.');
-			sleep(1);
-		}
-
-		$this->locked = FALSE;
-		return TRUE;
+		parent::__construct($socket, $handlerClass);
 	}
 
 	protected function select() {
-		while (!$this->lock()) {
-			usleep(1000);
-		}
+		$this->lock->lock();
 		$this->serial = apc_fetch(self::KEY_SERIAL);
-		$this->unlock();
+		$this->lock->unlock();
 
 		return parent::select();
 	}
@@ -56,9 +49,7 @@ class ForkingServer extends Server {
 		$return = array(0, array(), array(), array());
 
 		if (is_int($this->serial)) {
-			if (!$this->lock()) {
-				return $return;
-			}
+			$this->lock->lock();
 
 			if ($this->serial ===  apc_fetch(self::KEY_SERIAL)) {
 				while (apc_inc(self::KEY_SERIAL) === FALSE) {
@@ -68,22 +59,26 @@ class ForkingServer extends Server {
 				$this->log("Child {$this->child_id} accepting.");
 				$return = parent::accept();
 			}
-			$this->unlock();
+
+			$this->lock->unlock();
 		}
 
 		return $return;
 	}
 
-	public function run() {
+	public function run($processes = 10) {
 		if (!function_exists('pcntl_fork') || !function_exists('apc_inc')) {
 			$this->log("Warning: fork not available. Running with only one process.");
 			parent::run();
 			return;
 		}
 
-		apc_store(self::KEY_LOCK, 0);
+		/* Set bounds on # of processes to 1 <= $processes <= 1024 */
+		$processes = min(1024, max(1, $processes));
+
 		apc_store(self::KEY_SERIAL, 1);
-		for ($i = 0; $i < 4; $i++) {
+
+		for ($i = 0; $i < $processes; $i++) {
 			switch (pcntl_fork()) {
 				case -1: /* Error */
 					$this->log("Fork failure.");
@@ -91,7 +86,7 @@ class ForkingServer extends Server {
 
 				case 0:  /* Child */
 					$this->child_id = $i;
-					echo "Child $i running...\n";
+					$this->log("Child $i running.");
 					parent::run();
 					break;
 

@@ -5,6 +5,7 @@
 namespace janderson\net\http;
 
 use janderson\net\socket\Server;
+use janderson\net\socket\server\BaseHandler;
 use janderson\net\Buffer;
 use janderson\net\http\Request;
 use janderson\net\http\Response;
@@ -14,7 +15,7 @@ use janderson\net\socket\server\Handler as IHandler;
 /**
  * Implements an HTTPHandler Socket class.
  */
-class Handler implements IHandler {
+class Handler extends BaseHandler implements IHandler {
 	const EOL = "\r\n";
 	const BUF_LEN = 4096;
 
@@ -38,79 +39,7 @@ class Handler implements IHandler {
 	protected $response;
 	protected $headers = array();
 
-	/**
-	 * The buffer is used for both read and write phases.
-	 *
-	 * During the read phase, the buffer is filled as it becomes available then parsed into an HTTPRequest when a complete request is received.
-	 * During the write phase, the buffer is pulled from an HTTPResponse and emptied in chunks into the socket.
-	 *
-	 * @var string
-	 */
-	protected $buf;
 
-	/**
-	 * The length of the content in buffer, so repeated strlen isn't necessary
-	 * @var int
-	 */
-	protected $buflen = 0;
-
-	/**
-	 * Read/recv buffer
-	 *
-	 * @var Buffer
-	 */
-	protected $rbuf;
-
-	/**
-	 * Write/send buffer
-	 *
-	 * @var Buffer
-	 */
-	protected $wbuf;
-
-	/**
-	 * The length of the buffer left to send.
-	 *
-	 * @var int
-	 */
-	protected $bufrem;
-
-	public function __construct() {
-		$this->rbuf = new Buffer();
-		$this->wbuf = new Buffer();
-	}
-
-	public function getState() {
-		$state = 0;
-
-		if ($this->wbuf->length - $this->wbuf->position) {
-			$state |= Server::STATE_WR;
-		} else {
-			$state |= Server::STATE_RD;
-		}
-
-		return $state;
-	}
-
-	public function read(Socket &$socket) {
-
-	}
-
-	public function write(Socket &$socket) {
-		do {
-			$chunk = min($this->wbuf->length - $this->wbuf->position, self::BUF_LEN);
-
-			/* Clear the write buffer and return now if there's nothing more to write. */
-			if (!$chunk) {
-				$this->wbuf->clear();
-				return;
-			}
-
-			$sent = $socket->send(substr($this->wbuf->buffer, $this->wbuf->position, $chunk), $chunk);
-
-			$this->wbuf->position += $sent;
-		} while ($sent >= $chunk);
-	}
 
 	public function getRequest() {
 		return $this->request;
@@ -143,31 +72,6 @@ class Handler implements IHandler {
 		return (bool)($this->flags & self::FLAG_READ_COMPLETE);
 	}
 
-	public function sendResponse() {
-		if (empty($this->buf)) {
-			//if (!($this->response instanceof Response)) {
-			//	debug_print_backtrace();
-			//}
-			list($this->buf, $this->buflen) = $this->response->getBuffer();
-			$this->bufrem = $this->buflen;
-
-			//echo "Sending buffer: $this->buf\n";
-		}
-
-		$bufpos = $this->buflen - $this->bufrem;
-		$sent = $this->send(substr($this->buf, $bufpos, self::BUF_LEN), $this->bufrem);
-
-		$this->bufrem -= $sent;
-
-		if (!$this->bufrem) {
-			$this->flags |= self::FLAG_CLOSE;
-			/* Return NULL if we're supposed to close, otherwise return true to switch back to read mode. */
-			return ($this->flags & self::FLAG_CLOSE) ? NULL : TRUE;
-		}
-
-		return FALSE;
-	}
-
 	private function readData() {
 		if (!($length = $this->request->getContentLength())) {
 			$this->flags |= self::FLAG_READ_COMPLETE;
@@ -194,45 +98,25 @@ class Handler implements IHandler {
 		return FALSE;
 	}
 
+	/**
+	 * Attempt to read headers from the read buffer.
+	 *
+	 * @return bool True if headers were successfully read.
+	 */
 	private function readHeaders() {
-		do {
-			/* Do a peek to see if the next chunk contains the end of headers. Some efficiency loss here. */
-			list($buf, $buflen) = $this->recv(self::BUF_LEN, MSG_PEEK | MSG_DONTWAIT);
+		/* Check for any double EOL */
+		foreach (array("\r\n" => 2, "\n" => 1, "\r" => 1) as $eol => $eollen) {
+			$dbleollen = $eollen << 1; /* $eollen * 2, slightly faster */
 
-			/* Using non-blocking sockets, if select succeeds but returns 0, the socket is closed. */
-			if (!$buflen) return NULL;
+			if ($eolpos = strpos($this->rbuf->buffer, $eol . $eol)) {
+				$headers = $this->rbuf->get($eolpos + $dbleollen, TRUE);
+				$this->headers = explode($eol, $headers);
 
-			foreach (array("\r\n" => 2, "\n" => 1, "\r" => 1) as $eol => $eollen) {
-				$dbleollen = $eollen * 2;
-
-				if ($this->buflen == 0) {
-					$subtract = 0;
-				} elseif ($this->buflen > $dbleollen) {
-					$buf = substr($this->buf, -$dbleollen) . $buf;
-					$subtract = $dbleollen;
-				} else {
-					$buf = $this->buf . $buf;
-					$subtract = $this->buflen;
-				}
-
-				if ($eolpos = strpos($buf, $eol . $eol)) {
-					list($buf, $buflen) = $this->recv($eolpos + ($eollen * 2) - $subtract);
-					$this->buf .= $buf;
-					$this->buflen += $buflen;
-					$this->headers = explode($eol, $this->buf);
-					$this->buf = "";
-					$this->buflen = 0;
-
-					$this->parseRequest();
-					$this->flags |= self::FLAG_READ_HEADERS;
-					return TRUE;
-				}
+				$this->parseRequest();
+				$this->flags |= self::FLAG_READ_HEADERS;
+				return TRUE;
 			}
-
-			list($buf, $buflen) = $this->recv($buflen);
-			$this->buf .= $buf;
-			$this->buflen += $buflen;
-		} while ($buflen == self::BUF_LEN);
+		}
 
 		return FALSE;
 	}

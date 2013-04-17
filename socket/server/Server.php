@@ -2,6 +2,7 @@
 
 namespace janderson\net\socket\server;
 
+use \janderson\net\socket\Exception;
 use \janderson\net\socket\Socket;
 
 class Server {
@@ -28,7 +29,7 @@ class Server {
 	public function __construct(Socket $socket, $handlerClass) {
 		$this->socket = $socket;
 
-		if (!in_array('Handler', class_implements($handlerClass))) {
+		if (!in_array('janderson\net\socket\server\Handler', class_implements($handlerClass))) {
 			throw new Exception("Handler class must implement the Handler interface");
 		}
 
@@ -40,6 +41,7 @@ class Server {
 
 		while (!$this->stop) {
 			list($num, $rready, $wready, $err) = $this->select();
+			echo "Found $num sockets\n";
 
 			/* No sockets ready to read/write, probably hit the select timeout.  */
 			if (!$num) {
@@ -47,26 +49,35 @@ class Server {
 			}
 
 			foreach ($err as $socket) {
+				echo "Error!\n";
 				$this->error($socket);
 			}
 
 			foreach ($wready as $socket) {
-				$this->write($socket);
+				echo "write\n";
+				$this->write($socket) || $this->close($socket);
 			}
 
 			foreach ($rready as $socket) {
+				echo "read";
 				if ($socket === $this->socket) {
+					echo "Accept\n";
 					$this->accept();
 				} else {
-					$this->read($socket);
+					echo "What?\n";
+					$this->read($socket) || $this->close($socket);
 				}
 			}
 		}
+	}
 
+	public function stop() {
+		$this->stop = TRUE;
 	}
 
 	protected function error(&$socket) {
 		$this->log("Socket $socket in error state. Closing.");
+		echo "Err close\n";
 		$this->close($socket);
 	}
 
@@ -74,12 +85,15 @@ class Server {
 		$rd = array($this->socket);
 		$wr = array();
 		$err = array();
+
 		foreach ($this->sockets as $socket) {
 			$state = $this->handlers[$socket->getResourceId()]->getState();
 
 			if ($state & Server::STATE_RD) $rd[] = $socket;
 			if ($state & Server::STATE_WR) $wr[] = $socket;
 			$err[] = $socket;
+
+			echo "Socket in $state\n";
 		}
 
 		$num = $this->socket->select($rd, $wr, $err, self::SELECT_TIMEOUT);
@@ -97,27 +111,26 @@ class Server {
 
 		$socket->setBlocking(FALSE);
 		$handlerClass = $this->handlerClass;
-		$this->handlers[$socket->getResourceId()] = new $handlerClass();
+		$resourceId = $socket->getResourceId();
+		$this->handlers[$resourceId] = new $handlerClass();
+		$this->sockets[$resourceId] = $socket;
 	}
 
 	protected function read(Socket &$socket) {
 		$handler = $this->handlers[$socket->getResourceId()];
 
-		if (!$handler->read($socket)) {
-			$this->close($socket);
-		}
+		return $handler->read($socket);
 	}
 
 	protected function write(Socket &$socket) {
 		$handler = $this->handlers[$socket->getResourceId()];
 
-		if (!$handler->write($socket)) {
-			$this->close($socket);
-		}
+		return $handler->write($socket);
 	}
 
 	protected function close(&$socket) {
-		unset($this->handlers[$socket->getResourceId()]);
+		$resourceId = $socket->getResourceId();
+		unset($this->handlers[$resourceId], $this->sockets[$resourceId]);
 		$socket->close();
 	}
 }
