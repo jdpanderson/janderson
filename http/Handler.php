@@ -10,12 +10,11 @@ use janderson\net\Buffer;
 use janderson\net\http\Request;
 use janderson\net\http\Response;
 use janderson\net\socket\Socket;
-use janderson\net\socket\server\Handler as IHandler;
 
 /**
  * Implements an HTTPHandler Socket class.
  */
-class Handler extends BaseHandler implements IHandler {
+class Handler extends BaseHandler {
 	const EOL = "\r\n";
 	const BUF_LEN = 4096;
 
@@ -40,13 +39,24 @@ class Handler extends BaseHandler implements IHandler {
 	protected $headers = array();
 
 
-
 	public function getRequest() {
 		return $this->request;
 	}
 
 	public function setResponse($response) {
 		$this->response = $response;
+		list($buf, $len) = $response->getBuffer();
+		$this->wbuf->set($buf, $len);
+	}
+
+	protected function writeComplete() {
+		parent::writeComplete();
+
+		if (!$this->wbuf->length) {
+			$this->request = $this->response = NULL;
+		}
+
+		return TRUE;
 	}
 
 	/**
@@ -54,48 +64,48 @@ class Handler extends BaseHandler implements IHandler {
 	 *
 	 * @return bool|null
 	 */
-	public function readRequest() {
-		if ($this->flags & self::FLAG_READ_COMPLETE) return TRUE;
+	public function readComplete() {
+		if (!($this->flags & self::FLAG_READ_COMPLETE)) {
+			if (!($this->flags & self::FLAG_READ_HEADERS)) {
+				$this->readHeaders();
+			}
 
-		if (!($this->flags & self::FLAG_READ_HEADERS)) {
-			$readResult = $this->readHeaders();
+			if ($this->flags & self::FLAG_READ_HEADERS) {
+				$this->readData();
+			}
 		}
 
-		if ($this->flags & self::FLAG_READ_HEADERS) {
-			$readResult = $this->readData();
+		if ($this->flags & self::FLAG_READ_COMPLETE) {
+			/* Dispatch here.... and do this better. */
+			$response = new Response($this->request);
+			$response->setContent("test");
+			$this->setResponse($response);
+			var_dump($this->wbuf);
 		}
 
-		if ($readResult === NULL) {
-			return NULL;
-		}
-
-		return (bool)($this->flags & self::FLAG_READ_COMPLETE);
+		return TRUE;
 	}
 
-	private function readData() {
+	/**
+	 *
+	 * @return bool Returns true of the request data was successfully read.
+	 */
+	protected function readData() {
+		/* Unset or empty Content-Length */
 		if (!($length = $this->request->getContentLength())) {
 			$this->flags |= self::FLAG_READ_COMPLETE;
 			return TRUE;
 		}
 
-		do {
-			$readlen = min(self::BUF_LEN, $length - $this->buflen); /* Bytes left to read */
-			echo "$this->buf";
-			list($buf, $buflen) = $this->recv($readlen, MSG_DONTWAIT);
+		/* Not enough data in the buffer. Keep reading. */
+		if ($this->rbuf->length < $length) {
+			return FALSE;
+		}
 
-			$this->buf .= $buf;
-			$this->buflen += $buflen;
-
-			if ($this->buflen == $length) {
-				$this->request->setContent($this->buf);
-				$this->buf = "";
-				$this->buflen = 0;
-				$this->flags |= self::FLAG_READ_COMPLETE;
-				return TRUE;
-			}
-		} while ($buflen == $readlen);
-
-		return FALSE;
+		/* Enough data. Take it out of the buffer, and put it in the request. */
+		$this->request->setContent($this->rbuf->get($length, TRUE));
+		$this->flags |= self::FLAG_READ_COMPLETE;
+		return TRUE;
 	}
 
 	/**
@@ -103,59 +113,47 @@ class Handler extends BaseHandler implements IHandler {
 	 *
 	 * @return bool True if headers were successfully read.
 	 */
-	private function readHeaders() {
-		/* Check for any double EOL */
+	protected function readHeaders() {
+		/* Check for any double EOL, which signifies the end of headers. */
 		foreach (array("\r\n" => 2, "\n" => 1, "\r" => 1) as $eol => $eollen) {
 			$dbleollen = $eollen << 1; /* $eollen * 2, slightly faster */
 
-			if ($eolpos = strpos($this->rbuf->buffer, $eol . $eol)) {
-				$headers = $this->rbuf->get($eolpos + $dbleollen, TRUE);
-				$this->headers = explode($eol, $headers);
+			if ($eolpos = $this->rbuf->find($eol . $eol)) {
+				$lines = $this->rbuf->get($eolpos + $dbleollen, TRUE);
+				$lines = explode($eol, $lines);
 
-				$this->parseRequest();
+				if (empty($lines)) {
+					throw new Exception("Invalid request: no headers found.");
+				}
+
+				/* Parse and validate the request line */
+				$request = explode(" ", array_shift($lines));
+
+				if (count($request) != 3) {
+					throw new Exception("Malformed request line");
+				}
+
+				/* Parse and validate the headers */
+				$headers = array();
+				foreach ($lines as $line) {
+					if (empty($line)) continue;
+
+					$header = explode(":", $line, 2);
+
+					if (count($header) != 2) {
+						throw new Exception("Malformed header line");
+					}
+
+					$headers[strtolower(trim($header[0]))] = trim($header[1]);
+				}
+
+				$this->request = new Request($request[0], $request[1], $request[2], $headers);
+
 				$this->flags |= self::FLAG_READ_HEADERS;
 				return TRUE;
 			}
 		}
 
 		return FALSE;
-	}
-
-	/**
-	 * Given a set of unparsed header lines, extract the first line: the VERB URI VERSION (GET / HTTP/1.0) line.
-	 *
-	 * @throws Exception
-	 */
-	private function parseRequest() {
-		if (!count($this->headers)) throw new Exception("Invalid request: no request line found.");
-
-		$request = explode(" ", array_shift($this->headers));
-
-		if (count($request) != 3) throw new Exception("Malformed request line");
-
-		$this->request = new Request($request[0], $request[1], $request[2], $this->parseHeaders());
-	}
-
-	/**
-	 * Given a set of unparsed header lines, extract the key/value pairs from each header line.
-	 *
-	 * This function finalizes the headers property as an associative array.
-	 *
-	 * @return string[] An array of headers.
-	 * @throws Exception
-	 */
-	private function parseHeaders() {
-		$headers = array();
-		foreach ($this->headers as $header) {
-			if (empty($header)) continue;
-
-			$header = explode(":", $header, 2);
-			if (count($header) != 2) throw new Exception("Malformed header line");
-
-			list($header, $value) = $header;
-			$headers[strtolower(trim($header))] = trim($value);
-		}
-
-		return $headers;
 	}
 }

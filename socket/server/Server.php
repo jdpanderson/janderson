@@ -61,10 +61,8 @@ class Server {
 			foreach ($rready as $socket) {
 				echo "read";
 				if ($socket === $this->socket) {
-					echo "Accept\n";
-					$this->accept();
+					$this->accept() || $this->close($socket);
 				} else {
-					echo "What?\n";
 					$this->read($socket) || $this->close($socket);
 				}
 			}
@@ -106,7 +104,7 @@ class Server {
 			$socket = $this->socket->accept();
 		} catch (\Exception $e) {
 			$this->log("Failed to accept remote socket.");
-			return;
+			return FALSE;
 		}
 
 		$socket->setBlocking(FALSE);
@@ -114,6 +112,8 @@ class Server {
 		$resourceId = $socket->getResourceId();
 		$this->handlers[$resourceId] = new $handlerClass();
 		$this->sockets[$resourceId] = $socket;
+
+		return TRUE;
 	}
 
 	protected function read(Socket &$socket) {

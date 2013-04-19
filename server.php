@@ -109,5 +109,6 @@ $dispatcher = new Dispatcher(array(
 	'/'         => new StaticDispatcher('/home/janderson/public_html/blog/')
 ));
 
-$svr = new /* Forking */Server($socket, 'janderson\\net\\socket\\server\\BaseHandler');
+//$svr = new /* Forking */Server($socket, 'janderson\\net\\socket\\server\\BaseHandler');
+$svr = new /* Forking */Server($socket, 'janderson\\net\\http\\Handler');
 $svr->run($processes);

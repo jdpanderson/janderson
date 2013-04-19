@@ -80,6 +80,17 @@ class Buffer {
 	}
 
 	/**
+	 * Trim the buffer, discarding any portion before the current position pointer.
+	 *
+	 * @param int $length If positive, increments the position pointer by $length before performing the trim operation.
+	 */
+	public function trim($length = 0) {
+		$this->position += (int)$length;
+
+		$this->buffer = self::substr($this->buffer, $this->position);
+	}
+
+	/**
 	 * Get the byte length of a string.
 	 *
 	 * Tries to handle mbstring.func_overload safely and transparently.
