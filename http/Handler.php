@@ -15,29 +15,19 @@ use janderson\net\socket\Socket;
  * Implements an HTTPHandler Socket class.
  */
 class Handler extends BaseHandler {
-	const EOL = "\r\n";
-	const BUF_LEN = 4096;
-
 	/**
 	 * Signifies that the read is complete.
 	 */
 	const FLAG_READ_COMPLETE = 0x01;
 
 	/**
-	 * Signfies that the headers have been read.
+	 * Signifies that the headers have been read.
 	 */
 	const FLAG_READ_HEADERS = 0x02;
-
-	/**
-	 * Signifies that the socket should be closed after the response has been transmitted.
-	 */
-	const FLAG_CLOSE = 0x04;
 
 	protected $flags = 0;
 	protected $request;
 	protected $response;
-	protected $headers = array();
-
 
 	public function getRequest() {
 		return $this->request;
@@ -88,23 +78,22 @@ class Handler extends BaseHandler {
 	}
 
 	/**
+	 * Reads the data part of the request, the content.
 	 *
 	 * @return bool Returns true of the request data was successfully read.
 	 */
 	protected function readData() {
-		/* Unset or empty Content-Length */
-		if (!($length = $this->request->getContentLength())) {
-			$this->flags |= self::FLAG_READ_COMPLETE;
-			return TRUE;
-		}
+		$length = $this->request->getContentLength();
 
 		/* Not enough data in the buffer. Keep reading. */
 		if ($this->rbuf->length < $length) {
 			return FALSE;
 		}
 
-		/* Enough data. Take it out of the buffer, and put it in the request. */
-		$this->request->setContent($this->rbuf->get($length, TRUE));
+		/* Enough data. Take the content (if applicable) out of the buffer and put it in the request. */
+		if ($length) {
+			$this->request->setContent($this->rbuf->get($length, TRUE));
+		}
 		$this->flags |= self::FLAG_READ_COMPLETE;
 		return TRUE;
 	}
