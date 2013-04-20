@@ -52,11 +52,13 @@ class Handler extends BaseHandler {
 	protected function writeComplete() {
 		parent::writeComplete();
 
+		$keepAlive = TRUE;
 		if (!$this->wbuf->length) {
-			$this->request = $this->response = NULL;
+			$keepAlive = $this->request->keepAlive();
+			$this->request = $this->response = $this->flags = NULL;
 		}
 
-		return TRUE;
+		return $keepAlive;
 	}
 
 	/**
@@ -80,7 +82,6 @@ class Handler extends BaseHandler {
 			$response = new Response($this->request);
 			$response->setContent("test");
 			$this->setResponse($response);
-			var_dump($this->wbuf);
 		}
 
 		return TRUE;

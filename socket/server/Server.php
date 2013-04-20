@@ -10,7 +10,8 @@ class Server {
 	const STATE_WR = 2;
 	const STATE_RDWR = 3;
 
-	const SELECT_TIMEOUT = 1;
+	const SELECT_TIMEOUT = 5;
+
 	protected $socket;
 	protected $handlerClass;
 
@@ -41,7 +42,7 @@ class Server {
 
 		while (!$this->stop) {
 			list($num, $rready, $wready, $err) = $this->select();
-			echo "Found $num sockets\n";
+			//$this->log(sprintf("Found %d sockets, holding %d/%d sockets/handlers", $num, count($this->sockets), count($this->handlers)));
 
 			/* No sockets ready to read/write, probably hit the select timeout.  */
 			if (!$num) {
@@ -49,17 +50,14 @@ class Server {
 			}
 
 			foreach ($err as $socket) {
-				echo "Error!\n";
 				$this->error($socket);
 			}
 
 			foreach ($wready as $socket) {
-				echo "write\n";
 				$this->write($socket) || $this->close($socket);
 			}
 
 			foreach ($rready as $socket) {
-				echo "read";
 				if ($socket === $this->socket) {
 					$this->accept() || $this->close($socket);
 				} else {
@@ -75,7 +73,6 @@ class Server {
 
 	protected function error(&$socket) {
 		$this->log("Socket $socket in error state. Closing.");
-		echo "Err close\n";
 		$this->close($socket);
 	}
 
@@ -90,8 +87,6 @@ class Server {
 			if ($state & Server::STATE_RD) $rd[] = $socket;
 			if ($state & Server::STATE_WR) $wr[] = $socket;
 			$err[] = $socket;
-
-			echo "Socket in $state\n";
 		}
 
 		$num = $this->socket->select($rd, $wr, $err, self::SELECT_TIMEOUT);

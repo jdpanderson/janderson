@@ -28,12 +28,29 @@ class Request {
 		$this->content = $content;
 	}
 
+	public function getContent() {
+		return $this->content;
+	}
+
 	public function setContent($content) {
 		$this->content = $content;
 	}
 
 	public function setHeaders($headers = array()) {
 		$this->headers = $headers;
+	}
+
+	public function keepAlive() {
+		$connection = isset($this->headers['connection']) ? strtolower($this->headers['connection']) : NULL;
+		/**
+		 * HTTP <1.1 is close by default, unless otherwise specified.
+		 * HTTP =1.1 is keep-alive by default, unless otherwise specified.
+		 */
+		if ($this->version == HTTP::VERSION_1_1) {
+			return $connection != 'close';
+		} else {
+			return $connection == 'keep-alive';
+		}
 	}
 
 	/**
@@ -53,10 +70,6 @@ class Request {
 	 */
 	public function getContentLength() {
 		return isset($this->headers['content-length']) ? (int)$this->headers['content-length'] : 0;
-	}
-
-	public function getContent() {
-		return $this->content;
 	}
 
 	public function getMethod() {

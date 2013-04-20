@@ -13,6 +13,16 @@ class Response {
 	public function __construct(Request &$request) {
 		$this->request = &$request;
 		$this->version = $request->getVersion();
+
+		if ($this->version == HTTP::VERSION_1_1) {
+			if (!$request->keepAlive()) {
+				$this->setHeader('Connection', 'Close');
+			}
+		} else {
+			if ($request->keepAlive()) {
+				$this->setHeader('Connection', 'Keep-Alive');
+			}
+		}
 	}
 
 	public function setException(Exception $e) {

@@ -64,6 +64,8 @@ class BaseHandler implements Handler {
 	 * @return bool Returns true on success, or false on error.
 	 */
 	public function read(Socket &$socket) {
+		$readBytes = 0; /* Track data read in this cycle. */
+
 		do {
 			/* Overrun the max read buffer. Have to exit. */
 			if ($this->rbuf->length > self::BUF_MAX_LEN) {
@@ -73,9 +75,10 @@ class BaseHandler implements Handler {
 
 			list($buf, $len) = $socket->recv(self::BUF_CHUNK_LEN);
 
-			/* 0-length read means the socket has been closed. */
-			// XXX FIXME : a single 0-length read is probably okay if the previous read worked (e.g. data the exact size of a chunk). It's likely only an issue if we get two 0's in a row or a 0 after select().
-			if ($len === 0) {
+			$readBytes += $len;
+
+			/* 0-length read on its own means the socket has been closed. */
+			if (!$readBytes && $len === 0) {
 				$this->rbuf = $this->wbuf = NULL;
 				return FALSE;
 			}
@@ -112,7 +115,7 @@ class BaseHandler implements Handler {
 			/* Clear the write buffer and return now if there's nothing more to write. */
 			if ($chunk <= 0) {
 				$this->wbuf->clear();
-				return TRUE;
+				break;
 			}
 
 			$sent = $socket->send(substr($this->wbuf->buffer, $this->wbuf->position, $chunk), $chunk);
