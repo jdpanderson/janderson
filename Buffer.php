@@ -5,24 +5,59 @@
 namespace janderson\net;
  
 /**
- * The Buffer class represents a string of binary data which can be sent in pieces.
+ * The Buffer class represents a string of binary data which can be manipulated in pieces.
  */
 class Buffer {
+	/**
+	 * Binary buffer, as a string (because PHP has no concept of a binary buffer)
+	 *
+	 * @var string
+	 */
 	public $buffer = "";
+
+	/**
+	 * The current position within the buffer.
+	 *
+	 * @var int
+	 */
 	public $position = 0;
+
+	/**
+	 * The length of the buffer.
+	 *
+	 * @var int
+	 */
 	public $length = 0;
 
-	protected static $overload;
+	/**
+	 * Handle overloaded mbstring functions.
+	 *
+	 * This should be set to true if the following condition would return true:
+	 * <code>extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2)</code>
+	 *
+	 * @var bool
+	 */
+	protected static $overload = FALSE;
 
+	/**
+	 * Construct a new buffer, with optional initial contents.
+	 *
+	 * @param string $buf The initial buffer contents.
+	 * @param int $len The length of the initial buffer contents, if available.
+	 */
 	public function __construct($buf = NULL, $len = NULL) {
-		if (isset($buf)) $this->set($buf, $len);
+		if (isset($buf)) {
+			$this->set($buf, $len);
+		}
 	}
 
 	/**
 	 * Append a chunk of data to the buffer.
 	 *
+	 * Note: Passing in the wrong length will produce incorrect return values from other methods. This class will not prevent you from shooting yourself in the foot.
+	 *
 	 * @param string $buf The buffer chunk to append to this buffer.
-	 * @param int $len The length, if available. (Should be provided if at all possible.)
+	 * @param int $len The length, if available. (Should be provided if at all possible.
 	 */
 	public function append($buf, $len = NULL) {
 		$this->buffer .= $buf;
@@ -42,8 +77,8 @@ class Buffer {
 	/**
 	 * Get a portion of the buffer, optionally clearing the retrieved portion.
 	 *
-	 * @param int $length
-	 * @param bool $clear
+	 * @param int $length Get $length bytes from the buffer.
+	 * @param bool $clear If true, delete the returned data from the buffer.
 	 */
 	public function get($length = NULL, $clear = FALSE) {
 		/* Clamp length between 0 and the length of the buffer. */
@@ -99,10 +134,6 @@ class Buffer {
 	 * @return int The number of bytes in the string.
 	 */
 	public static function strlen($str) {
-		if (!isset(self::$overload)) {
-			self::$overload = extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2);
-		}
-
 		if (!self::$overload) {
 			return strlen($str);
 		}
@@ -124,10 +155,6 @@ class Buffer {
 	 * @return int
 	 */
 	public static function strpos($haystack, $needle, $offset = 0) {
-		if (!isset(self::$overload)) {
-			self::$overload = extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2);
-		}
-
 		if (!self::$overload) {
 			return strpos($haystack, $needle, $offset);
 		}
@@ -150,10 +177,6 @@ class Buffer {
 	 * @return int
 	 */
 	public static function substr($string, $start, $length = NULL) {
-		if (!isset(self::$overload)) {
-			self::$overload = extension_loaded('mbstring') && ((int)ini_get("mbstring.func_overload") & 2);
-		}
-
 		if (!self::$overload) {
 			return isset($length) ? substr($string, $start, $length) : substr($string, $start);
 		}

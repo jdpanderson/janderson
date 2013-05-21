@@ -2,7 +2,7 @@
 
 namespace janderson\net\socket\server;
 
-use \janderson\net\socket\Exception;
+use \janderson\net\socket\SocketException;
 use \janderson\net\socket\Socket;
 
 class Server {
@@ -25,13 +25,14 @@ class Server {
 	}
 
 	/**
-	 * @throws Exception An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
+	 * @throws SocketException An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
+	 * @throws InvalidArgumentException If the handler is invalid.
 	 */
 	public function __construct(Socket $socket, $handlerClass) {
 		$this->socket = $socket;
 
 		if (!in_array('janderson\net\socket\server\Handler', class_implements($handlerClass))) {
-			throw new Exception("Handler class must implement the Handler interface");
+			throw new InvalidArgumentException("Handler class must implement the Handler interface");
 		}
 
 		$this->handlerClass = $handlerClass;

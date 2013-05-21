@@ -48,12 +48,25 @@ class APCLock {
 			mt_rand(0, mt_getrandmax()),
 			microtime(TRUE) * 1000000
 		);
+
+		if (!apc_store($this->key, 0)) {
+			throw new LockException("unable to store initial value for lock");
+		}
+	}
+
+	/**
+	 * Unlock if we're locked. (Don't die holding the lock.)
+	 */
+	public function __destruct() {
+		if ($this->locked) {
+			$this->unlock();
+		}
 	}
 
 	/**
 	 * Remove the lock key from APC.
 	 */
-	public function __destruct() {
+	public function destroy() {
 		apc_delete($this->key);
 	}
 

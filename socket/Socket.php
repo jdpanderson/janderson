@@ -7,12 +7,12 @@ namespace janderson\net\socket;
  */
 class Socket {
 	/**
-	 *
+	 * Address value used to specify the wildcard "any" address.
 	 */
 	const ADDR_ANY = "0.0.0.0";
 
 	/**
-	 *
+	 * Port value used to specity the wildcard "any" port.
 	 */
 	const PORT_ANY = 0;
 
@@ -33,7 +33,7 @@ class Socket {
 		if ($this->errorMode == self::ERRMODE_EXCEPTION) {
 			list($errno, $error) = $this->getError();
 
-			throw new Exception(sprintf("%s::%s: %s", __CLASS__, $function, $error), $errno);
+			throw new SocketException(sprintf("%s::%s: %s", __CLASS__, $function, $error), $errno);
 		}
 
 		return FALSE;
@@ -272,7 +272,6 @@ class Socket {
 
 	/**
 	 * @return int
-	 * @throws Exception
 	 */
 	public function getResourceId() {
 		return intval($this->socket);

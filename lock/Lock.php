@@ -40,4 +40,13 @@ interface Lock {
 	 * @return bool True if this instance is holding the lock.
 	 */
 	public function isLocked();
+
+	/**
+	 * Destroy any resources that may be left behind by the lock.
+	 *
+	 * Note: as a lock implementation may affect other processes or even servers on a network, a lock should ensure that this is the *final* user of the lock before destroying itself.
+	 *
+	 * @return bool True if resources were successfully destroyed.
+	 */
+	public function destroy();
 }

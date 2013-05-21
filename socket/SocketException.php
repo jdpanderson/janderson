@@ -7,4 +7,4 @@ namespace janderson\net\socket;
 /**
  * Exception
  */
-class Exception extends \Exception {}
+class SocketException extends \Exception {}

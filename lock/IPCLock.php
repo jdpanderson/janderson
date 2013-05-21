@@ -47,7 +47,7 @@ class IPCLock {
 	 *
 	 * @var int
 	 */
-	protected $lock = 0;
+	protected $locked = 0;
 
 	/**
 	 * Initialize SysV shared memory and semaphores used for this lock type.
@@ -64,21 +64,34 @@ class IPCLock {
 		if (($this->shm = shm_attach($this->key)) === FALSE) {
 			throw new LockException("Failed to attach shared memory");
 		}
-		shm_put_var($this->shm, 0, $this->lock);
+		shm_put_var($this->shm, 0, $this->locked);
 	}
 
 	/**
 	 * Detach from the shared memory segment.
 	 */
 	public function __destruct() {
+		if ($this->locked) {
+			$this->unlock();
+		}
 		shm_detach($this->shm);
+	}
+
+	/**
+	 * Destroy the resources associated with this lock type.
+	 *
+	 * This lock type must take special care to only destroy references once after execution is complete, or other processes may encounter errors. (E.g. removal or detchment of semaphores or shared memory before other processes expect them to disappear.)
+	 */
+	public function destroy() {
+		sem_remove($this->sem);
+		shm_remove($this->shm);
 	}
 
 	/**
 	 * Obtain a lock, potentially blocking until one can be obtained.
 	 */
 	public function lock() {
-		while (!$this->lock) {
+		while (!$this->locked) {
 			if (!$this->trylock()) {
 				usleep(500);
 			}
@@ -99,8 +112,8 @@ class IPCLock {
 			return FALSE;
 		}
 
-		$this->lock = 1;
-		shm_put_var($this->shm, 0, $this->lock);
+		$this->locked = 1;
+		shm_put_var($this->shm, 0, $this->locked);
 		sem_release($this->sem);
 		return TRUE;
 	}
@@ -111,14 +124,14 @@ class IPCLock {
 	 * @return bool Returns true if the lock was successfully released.
 	 */
 	public function unlock() {
-		if (!$this->lock) {
+		if (!$this->locked) {
 			trigger_error("double unlock detected: unlocked a lock which was not locked", E_USER_WARNING);
 			return TRUE;
 		}
 
 		sem_acquire($this->sem);
-		$this->lock = 0;
-		shm_put_var($this->shm, 0, $this->lock);
+		$this->locked = 0;
+		shm_put_var($this->shm, 0, $this->locked);
 		sem_release($this->sem);
 
 		return TRUE;
@@ -130,6 +143,6 @@ class IPCLock {
 	 * @return bool True if this instance is holding the lock.
 	 */
 	public function isLocked() {
-		return (bool)$this->lock;
+		return (bool)$this->locked;
 	}
 }
