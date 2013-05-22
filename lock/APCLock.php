@@ -113,8 +113,7 @@ class APCLock {
 	 */
 	public function unlock() {
 		if (!$this->locked) {
-			//trigger_error("double unlock detected: unlocked a lock which was not locked", E_USER_WARNING);
-			return FALSE;
+			return TRUE; /* Double-unlock. Not harmful, but means something isn't right. */
 		}
 
 		while (apc_dec($this->key) === FALSE) {

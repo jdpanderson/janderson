@@ -50,9 +50,8 @@ class ExampleLock implements Lock {
 	{
 		if ($this->locked) {
 			$this->locked = FALSE;
-			return TRUE;
-		}
-		return FALSE;
+		} /* else double-unlock */
+		return TRUE;
 	}
 
 	/**

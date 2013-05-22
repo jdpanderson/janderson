@@ -17,7 +17,9 @@ abstract class LockTest extends \PHPUnit_Framework_TestCase
 
 	public function tearDown()
 	{
-		$this->lock->destroy();
+		if ($this->lock) {
+			$this->lock->destroy();
+		}
 	}
 
 	public function testBasicOperation()
@@ -39,8 +41,8 @@ abstract class LockTest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals(TRUE, $this->lock->unlock());
 		$this->assertEquals(FALSE, $this->lock->isLocked());
 
-		/* Unlocking an unlocked lock shouldn't work. */
-		$this->assertEquals(FALSE, $this->lock->unlock());
+		/* Unlocking an unlocked lock should work. */
+		$this->assertEquals(TRUE, $this->lock->unlock());
 	}
 
 	/**
