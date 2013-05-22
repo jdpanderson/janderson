@@ -3,7 +3,7 @@
  * This file defines the IPCLock class.
  */
 
-namespace janderson\net\lock;
+namespace janderson\lock;
 
 /**
  * The IPCLock class uses SysV-IPC to perform machine-local locking.

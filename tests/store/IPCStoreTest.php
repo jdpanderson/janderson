@@ -2,7 +2,7 @@
 
 namespace janderson\tests\store;
 
-class IPCStoreText extends KeyValueStoreTest
+class IPCStoreTest extends KeyValueStoreTest
 {
 	protected static $impl = "janderson\store\IPCStore";
 

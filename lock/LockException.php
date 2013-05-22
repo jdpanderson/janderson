@@ -3,7 +3,7 @@
  * This file defines the LockException class
  */
 
-namespace janderson\net\lock;
+namespace janderson\lock;
 
 /**
  * A unique exception for locks

@@ -3,7 +3,7 @@
  * This file defines the APCLock class.
  */
 
-namespace janderson\net\lock;
+namespace janderson\lock;
 
 /**
  * The APCLock class uses the APC extension's inc/dec methods to perform machine-local locking.
@@ -113,7 +113,7 @@ class APCLock {
 	 */
 	public function unlock() {
 		if (!$this->locked) {
-			trigger_error("double unlock detected: unlocked a lock which was not locked", E_USER_WARNING);
+			//trigger_error("double unlock detected: unlocked a lock which was not locked", E_USER_WARNING);
 			return FALSE;
 		}
 
@@ -123,12 +123,6 @@ class APCLock {
 		}
 
 		$this->locked = FALSE;
-		return TRUE;
-		if (!$this->lock) {
-			trigger_error("double unlock detected: unlocked a lock which was not locked", E_USER_WARNING);
-			return TRUE;
-		}
-
 		return TRUE;
 	}
 

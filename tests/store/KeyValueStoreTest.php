@@ -6,7 +6,7 @@ use janderson\store\ArrayStore;
 use janderson\store\APCStore;
 use janderson\store\IPCStore;
 
-class KeyValueStoreTest extends \PHPUnit_Framework_TestCase
+abstract class KeyValueStoreTest extends \PHPUnit_Framework_TestCase
 {
 	protected static $impl = "janderson\store\ArrayStore";
 	protected $store;

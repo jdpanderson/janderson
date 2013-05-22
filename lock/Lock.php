@@ -3,7 +3,7 @@
  * This file defines the Lock interface.
  */
 
-namespace janderson\net\lock;
+namespace janderson\lock;
 
 /**
  * Interface for a generic lock
