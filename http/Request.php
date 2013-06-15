@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\net\http;
+namespace janderson\http;
 
-//use janderson\net\http\HTTP;
+//use janderson\http\HTTP;
 
 class Request {
 	protected $headers;

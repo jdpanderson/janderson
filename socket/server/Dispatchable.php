@@ -2,7 +2,7 @@
 /**
  * This file defines the Dispatcher interface
  */
-namespace janderson\net\socket\server;
+namespace janderson\socket\server;
 
 /**
  * Dispatchable

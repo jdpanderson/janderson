@@ -2,9 +2,9 @@
 /**
  * This file defines the Handler interface
  */
-namespace janderson\net\socket\server;
+namespace janderson\socket\server;
 
-use janderson\net\socket\Socket;
+use janderson\socket\Socket;
 
 /**
  * An interface to be implemented by protocol handlers that sit on top of sockets.

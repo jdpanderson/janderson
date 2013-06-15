@@ -2,7 +2,7 @@
 /**
  *
  */
-namespace janderson\net;
+namespace janderson;
 
 spl_autoload_register(function($class_name) {
 	$elements = explode('\\', $class_name);
@@ -11,30 +11,32 @@ spl_autoload_register(function($class_name) {
 		return FALSE;
 	}
 
-	require sprintf("%s/%s.php", __DIR__, implode('/', array_slice($elements, 2)));
+	$file = sprintf("%s/%s.php", __DIR__, implode('/', array_slice($elements, 1)));
+	require $file;
 });
 
-use janderson\net\http\Handler as Handler;
-use janderson\net\http\Dispatcher;
-use janderson\net\http\StaticDispatcher;
-use janderson\net\http\JSONRPCDispatcher;
-use janderson\net\socket\Socket;
-use janderson\net\socket\server\Server;
-use janderson\net\socket\server\ForkingServer;
+use janderson\http\Handler as Handler;
+use janderson\http\Dispatcher;
+use janderson\http\StaticDispatcher;
+use janderson\http\JSONRPCDispatcher;
+use janderson\socket\Socket;
+use janderson\socket\server\Server;
+use janderson\socket\server\ForkingServer;
 
-$options = getopt("a:hn:p:u:g:");
+$options = getopt("a:hH:n:p:u:g:");
 
 if (isset($options['h'])) {
 	echo <<<HELP
 Usage: {$argv[0]} [options]
 
 Options:
-  -h          Show this help
-  -n <num>    Spawn up to <num> server processes.
-  -a <addr>   Bind to address <addr>. (Default is all bind to all addresses.)
-  -p <port>   Listen on port <port>. (Default is 80, or 8080 for non-root.)
-  -u <euid>   Set the effective UID of the server processes. (root only.)
-  -g <egid>   Set the effective GID of the server processes. (root only.)
+  -h           Show this help
+  -H <handler> Use protocol handler class <handler>
+  -n <num>     Spawn up to <num> server processes.
+  -a <addr>    Bind to address <addr>. (Default is all bind to all addresses.)
+  -p <port>    Listen on port <port>. (Default is 80, or 8080 for non-root.)
+  -u <euid>    Set the effective UID of the server processes. (root only.)
+  -g <egid>    Set the effective GID of the server processes. (root only.)
 
 
 HELP;
@@ -44,6 +46,7 @@ HELP;
 $root = (posix_geteuid() === 0);
 $port = isset($options['p']) ? $options['p'] : ($root ? 80 : 8080);
 $addr = isset($options['a']) ? $options['a'] : Socket::ADDR_ANY;
+$handler = isset($options['H']) ? $options['H'] : 'janderson\\socket\\server\\handler\\EchoHandler';
 
 /* Listen, then possibly switch the effective UID/GID */
 $socket = new Socket();
@@ -109,6 +112,10 @@ $dispatcher = new Dispatcher(array(
 	'/'         => new StaticDispatcher('/home/janderson/public_html/blog/')
 ));
 
-$svr = new ForkingServer($socket, 'janderson\\net\\http\\Handler');
-//$svr = new /* Forking */Server($socket, 'janderson\\net\\http\\Handler');
-$svr->run(5);
+if ($processes === 1) {
+	$svr = new Server($socket, $handler);
+	$svr->run();
+} else {
+	$svr = new ForkingServer($socket, $handler);
+	$svr->run($processes);
+}

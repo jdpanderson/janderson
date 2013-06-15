@@ -1,15 +1,18 @@
 <?php
 
-namespace janderson\net\socket\server;
+namespace janderson\socket\server;
 
-use \janderson\net\socket\Socket;
-use \janderson\net\lock\APCLock;
-use \janderson\net\lock\IPCLock;
+use \janderson\misc\Destroyable;
+use \janderson\socket\Socket;
+use \janderson\lock\Lock;
+use \janderson\lock\IPCLock;
+use \janderson\store\KeyValueStore;
+use \janderson\store\IPCStore;
 
 /**
  * Class ForkingServer
  *
- * @package janderson\net\socket\server
+ * @package janderson\socket\server
  */
 class ForkingServer extends Server {
 	/**
@@ -36,7 +39,7 @@ class ForkingServer extends Server {
 	/**
 	 * Lock before reading/writing shared data to/from APC shared memory.
 	 *
-	 * @var \janderson\net\lock\Lock;
+	 * @var \janderson\lock\Lock;
 	 */
     protected $lock;
 
@@ -67,19 +70,29 @@ class ForkingServer extends Server {
 	 */
 	protected $processTimestamps = array();
 
-	public function __construct(Socket $socket, $handlerClass) {
-		$this->lock = new APCLock();
+	public function __construct(Socket $socket, $handlerClass, Lock $lock = NULL, KeyValueStore $store = NULL) {
+		$this->lock = isset($lock) ? $lock : new IPCLock(); /* Allow any lock, but default to IPCLock */
+		$this->store = isset($store) ? $store : new IPCStore(); /* Allow any store, but default to IPCStore */
 
-		apc_store(self::KEY_STATUS_CHILD, array(), 86400);
-		apc_store(self::KEY_SERIAL, 0, 86400);
+		$this->store->set(self::KEY_STATUS_CHILD, array(), 86400);
+		$this->store->set(self::KEY_SERIAL, 0, 86400);
 
 		parent::__construct($socket, $handlerClass);
 	}
 
 	public function __destruct() {
+		/* If we're the parent, do some cleanup. */
 		if (!$this->child_id) {
-			apc_delete(self::KEY_STATUS_CHILD);
-			apc_delete(self::KEY_SERIAL);
+			$this->store->delete(self::KEY_STATUS_CHILD);
+			$this->store->delete(self::KEY_SERIAL);
+
+			if ($this->store instanceof Destroyable) {
+				$this->store->destroy();
+			}
+
+			if ($this->lock instanceof Destroyable) {
+				$this->lock->destroy();
+			}
 		}
 	}
 
@@ -98,14 +111,14 @@ class ForkingServer extends Server {
 		}
 
 		$success = FALSE;
-		if (($child_status = apc_fetch(self::KEY_STATUS_CHILD)) !== FALSE) {
+		if (($child_status = $this->store->get(self::KEY_STATUS_CHILD)) !== FALSE) {
 			/* For the child, we set the status in the array. For the parent, we clear it all. */
 			if ($this->child_id) {
 				$child_status[$this->child_id] = array(time(), count($this->sockets));
 			} else {
 				$child_status = array();
 			}
-			if (apc_store(self::KEY_STATUS_CHILD, $child_status, 3600)) {
+			if ($this->store->set(self::KEY_STATUS_CHILD, $child_status, 3600)) {
 				$this->statusTs = $time;
 				$success = TRUE;
 			}
@@ -122,15 +135,20 @@ class ForkingServer extends Server {
 	 * @return mixed[]
 	 */
 	protected function getChildStatus() {
-		return apc_fetch(self::KEY_STATUS_CHILD);
+		return $this->store->get(self::KEY_STATUS_CHILD);
 	}
 
 	protected function getSerial() {
-		$this->serial = apc_fetch(self::KEY_SERIAL);
+		$this->serial = $this->store->get(self::KEY_SERIAL);
 	}
 
 	protected function incrementSerial() {
-		return apc_inc(self::KEY_SERIAL) !== FALSE;
+		$this->lock->lock();
+		$serial = $this->store->get(self::KEY_SERIAL);
+		$result = $this->store->set(self::KEY_SERIAL, ++$serial);
+		$this->lock->unlock();
+
+		return $result;
 	}
 
 	protected function select() {
@@ -166,12 +184,6 @@ class ForkingServer extends Server {
 	}
 
 	public function run($processes = 10) {
-		if (!function_exists('pcntl_fork') || !function_exists('apc_fetch')) {
-			$this->log("Warning: fork not available. Running with only one process.");
-			parent::run();
-			return;
-		}
-
 		/* Set bounds on # of processes to 1 <= $processes <= 1024 */
 		$processes = min(1024, max(1, $processes));
 		$child_id = 0;
@@ -215,6 +227,8 @@ class ForkingServer extends Server {
 		if ($this->child_id === NULL) {
 			echo "Parent going to sleep as a proof of concept.\n";
 			sleep(1000);
+		} else {
+			echo "done...\n";
 		}
 	}
 }

@@ -25,7 +25,8 @@ abstract class KeyValueStoreTest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals(FALSE, $this->store->get($k));
 
 		/* A delete on a non-existant key shouldn't succeed */
-		$this->assertEquals(FALSE, $this->store->delete($k));
+		$this->assertEquals(FALSE, $this->store->delete
+			($k));
 
 		/* Set it and check it. */
 		$this->assertEquals(TRUE, $this->store->set($k, $v));

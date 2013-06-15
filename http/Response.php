@@ -1,6 +1,6 @@
 <?php
 
-namespace janderson\net\http;
+namespace janderson\http;
 
 class Response {
 	protected $code = HTTP::STATUS_OK;

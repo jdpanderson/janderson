@@ -2,10 +2,10 @@
 /**
  * This file defines the BaseHandler interface
  */
-namespace janderson\net\socket\server;
+namespace janderson\socket\server;
 
-use janderson\net\Buffer;
-use janderson\net\socket\Socket;
+use janderson\Buffer;
+use janderson\socket\Socket;
 
 /**
  * BaseHandler: An example handler that echoes any data back to the client.

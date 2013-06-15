@@ -1,24 +1,47 @@
 <?php
 
-namespace janderson\net\socket\server;
+namespace janderson\socket\server;
 
-use \janderson\net\socket\SocketException;
-use \janderson\net\socket\Socket;
+use \janderson\socket\SocketException;
+use \janderson\socket\Socket;
+use \janderson\Buffer;
 
 class Server {
-	const STATE_RD = 1;
-	const STATE_WR = 2;
-	const STATE_RDWR = 3;
+	/**
+	 * Biggest buffer to read.
+	 */
+	const BUF_MAX_LEN = 16777216; /* 16 MiB; 16 * 1024 * 1024 */
+
+	/**
+	 * Receive data in chunks of this size.
+	 *
+	 * Interestingly, if you try to receive huge chunks, performance plummets. Possibly allocating and de-allocating large buffers?
+	 */
+	const RCV_MAX_LEN = 4096;
 
 	const SELECT_TIMEOUT = 5;
 
+	/**
+	 * The listen socket.
+	 *
+	 * @var Socket
+	 */
 	protected $socket;
-	protected $handlerClass;
 
+	/**
+	 * A list of tuples containing (each) a socket, a write buffer, and a protocol handler.
+	 * 
+	 * @var [Socket, Buffer, Handler][]
+	 */
+	protected $children = array();
+
+	/**
+	 * True signifies that server stop has been requested.
+	 *
+	 * @var bool
+	 */
 	protected $stop = FALSE;
 
-	protected $sockets = array();
-	protected $handlers = array();
 
 	protected function log($message) {
 		error_log($message);
@@ -26,16 +49,10 @@ class Server {
 
 	/**
 	 * @throws SocketException An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
-	 * @throws InvalidArgumentException If the handler is invalid.
 	 */
-	public function __construct(Socket $socket, $handlerClass) {
+	public function __construct(Socket $socket, $handler) {
 		$this->socket = $socket;
-
-		if (!in_array('janderson\net\socket\server\Handler', class_implements($handlerClass))) {
-			throw new InvalidArgumentException("Handler class must implement the Handler interface");
-		}
-
-		$this->handlerClass = $handlerClass;
+		$this->handler = $handler;
 	}
 
 	public function run() {
@@ -43,7 +60,6 @@ class Server {
 
 		while (!$this->stop) {
 			list($num, $rready, $wready, $err) = $this->select();
-			//$this->log(sprintf("Found %d sockets, holding %d/%d sockets/handlers", $num, count($this->sockets), count($this->handlers)));
 
 			/* No sockets ready to read/write, probably hit the select timeout.  */
 			if (!$num) {
@@ -55,14 +71,14 @@ class Server {
 			}
 
 			foreach ($wready as $socket) {
-				$this->write($socket) || $this->close($socket);
+				$this->send($socket) || $this->close($socket);
 			}
 
 			foreach ($rready as $socket) {
 				if ($socket === $this->socket) {
-					$this->accept() || $this->close($socket);
+					$this->accept() || $this->error($socket);
 				} else {
-					$this->read($socket) || $this->close($socket);
+					$this->recv($socket) || $this->close($socket);
 				}
 			}
 		}
@@ -73,26 +89,29 @@ class Server {
 	}
 
 	protected function error(&$socket) {
+		if ($socket === $this->socket) {
+			$this->stop();
+		}
 		$this->log("Socket $socket in error state. Closing.");
 		$this->close($socket);
+		return FALSE;
 	}
 
 	protected function select() {
-		$rd = array($this->socket);
-		$wr = array();
-		$err = array();
-
-		foreach ($this->sockets as $socket) {
-			$state = $this->handlers[$socket->getResourceId()]->getState();
-
-			if ($state & Server::STATE_RD) $rd[] = $socket;
-			if ($state & Server::STATE_WR) $wr[] = $socket;
-			$err[] = $socket;
+		$readers = array($this->socket);
+		$writers = array();
+		foreach ($this->children as $child) {
+			list($socket, $buffer, $handler) = $child;
+			$readers[] = $socket;
+			if (!empty($buffer)) {
+				$writers[] = $socket;
+			}
 		}
 
-		$num = $this->socket->select($rd, $wr, $err, self::SELECT_TIMEOUT);
+		$err = $readers;
+		$num = $this->socket->select($readers, $writers, $err, self::SELECT_TIMEOUT);
 
-		return array($num, $rd, $wr, $err);
+		return array($num, $readers, $writers, $err);
 	}
 
 	protected function accept() {
@@ -104,29 +123,84 @@ class Server {
 		}
 
 		$socket->setBlocking(FALSE);
-		$handlerClass = $this->handlerClass;
+		$handler = $this->handler;
 		$resourceId = $socket->getResourceId();
-		$this->handlers[$resourceId] = new $handlerClass();
-		$this->sockets[$resourceId] = $socket;
+		$buffer = "";
+		$this->children[$resourceId] = array(
+			$socket,
+			&$buffer,
+			new $handler($buffer)
+		);
+		return TRUE;
+	}
+
+	/**
+	 * Read as much as possible, then pass the data off to the handler.
+	 */
+	protected function recv(Socket &$socket) {
+		$resourceId = $socket->getResourceId();
+
+		if (!isset($this->children[$resourceId])) {
+			return FALSE;
+		}
+
+		$buffer = "";
+		$length = 0;
+		do {
+			list($buf, $len) = $socket->recv(self::RCV_MAX_LEN);
+			$buffer .= $buf;
+			$length += $len;
+		} while ($len == self::RCV_MAX_LEN);
+
+		/* 0-length read on its own means the socket has been closed. */
+		if ($len === 0 && $length === 0) {
+			return FALSE;
+		}
+
+		list($socket, $buffer, $handler) = $this->children[$resourceId];
+
+		return $handler->read($buf, $len);
+	}
+
+	protected function send(Socket &$socket) {
+		$resourceId = $socket->getResourceId();
+
+		if (!isset($this->children[$resourceId])) {
+			return FALSE;
+		}
+
+		list($socket, $buffer, $handler) = $this->children[$resourceId];
+
+		$len = strlen($buffer); // maybe mb_strlen($buffer, 'pass'); ?
+
+		/* Clear the write buffer and return now if there's nothing more to write. */
+		if ($len) {
+			$sent = $socket->send($buffer, $len);
+			if ($sent === FALSE) {
+				return FALSE;
+			}
+			$buffer = substr($buffer, $sent); // maybe mb_substr($buffer, $sent, $len, 'pass'); ?
+			$this->children[$resourceId][1] = $buffer;
+
+			if (empty($buffer)) {
+				return $handler->write();
+			}
+		}
 
 		return TRUE;
 	}
 
-	protected function read(Socket &$socket) {
-		$handler = $this->handlers[$socket->getResourceId()];
-
-		return $handler->read($socket);
-	}
-
-	protected function write(Socket &$socket) {
-		$handler = $this->handlers[$socket->getResourceId()];
-
-		return $handler->write($socket);
-	}
-
-	protected function close(&$socket) {
+	protected function close(Socket &$socket) {
 		$resourceId = $socket->getResourceId();
-		unset($this->handlers[$resourceId], $this->sockets[$resourceId]);
+
+		if (!isset($this->children[$resourceId])) {
+			$socket->close();
+			return;
+		}
+
+		list($socket, $buffer, $handler) = $this->children[$resourceId];
 		$socket->close();
+		$handler->close();
+		unset($this->children[$resourceId]);
 	}
 }

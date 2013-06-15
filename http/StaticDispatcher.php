@@ -2,9 +2,9 @@
 /**
  * This file defines the StaticDispatcher interface
  */
-namespace janderson\net\http;
+namespace janderson\http;
 
-use \janderson\net\socket\server\Dispatchable;
+use \janderson\socket\server\Dispatchable;
 
 /**
  * StaticDispatcher is a dispatcher for static content, i.e. serves files from a directory tree in the filesystem.

@@ -35,22 +35,26 @@ class APCLock {
 
 	/**
 	 * Initialize the APC key used for this lock type.
+	 *
+	 * @param string $key The key to use for storing the lock value. If none is provided, a random key will be generated.
 	 */
-	public function __construct() {
-		if (!extension_loaded("apc")) {
-			throw new LockException("apc extension required but not found");
+	public function __construct($key = NULL) {
+		/* The key is made up of enough random data to ensure that collision is unlikely. */
+		if (empty($key)) {
+			$this->key = sprintf(
+				"%s::lock(%d, %d)",
+				__CLASS__,
+				mt_rand(0, mt_getrandmax()),
+				microtime(TRUE) * 1000000
+			);
+		} else {
+			$this->key = $key;
 		}
 
-		/* The key is made up of enough random data to ensure that collision is unlikely. */
-		$this->key = sprintf(
-			"%s::lock(%d, %d)",
-			__CLASS__,
-			mt_rand(0, mt_getrandmax()),
-			microtime(TRUE) * 1000000
-		);
-
-		if (!apc_store($this->key, 0)) {
-			throw new LockException("unable to store initial value for lock");
+		if (!apc_exists($this->key)) {
+			if (!apc_store($this->key, 0)) {
+				throw new LockException("unable to store initial value for lock");
+			}
 		}
 	}
 
@@ -97,9 +101,9 @@ class APCLock {
 			$this->locked = TRUE;
 			return TRUE;
 		} elseif ($value !== FALSE) {
+			/* If we successfully incremented the key but didn't get the lock, we have to decrement it again. */
 			while (apc_dec($this->key) === FALSE) {
-				$this->log('Warning: Cleaning up after lock failure failed. Will retry.');
-				sleep(1);
+				usleep(500);
 			}
 		}
 
@@ -117,8 +121,7 @@ class APCLock {
 		}
 
 		while (apc_dec($this->key) === FALSE) {
-			$this->log('Warning: Unlocking failed. Will retry.');
-			sleep(1);
+			usleep(500);
 		}
 
 		$this->locked = FALSE;

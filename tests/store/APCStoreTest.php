@@ -13,4 +13,12 @@ class APCStoreTest extends KeyValueStoreTest
 		}
 		parent::setUp();
 	}
+
+	public function testIncDec()
+	{
+		$key = "test";
+		$this->store->set($key, 0);
+		$this->assertEquals(1, $this->store->inc($key));
+		$this->assertEquals(0, $this->store->dec($key));
+	}
 }

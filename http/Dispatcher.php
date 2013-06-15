@@ -2,9 +2,9 @@
 /**
  * This file defines the Dispatcher interface
  */
-namespace janderson\net\http;
+namespace janderson\http;
 
-use \janderson\net\socket\server\Dispatchable;
+use \janderson\socket\server\Dispatchable;
 use \Closure;
 
 /**

@@ -1,8 +1,10 @@
 <?php
 /**
  * This file defines the Buffer class
+ *
+ * XXX This could be re-implemented using php://memory or php://temp
  */
-namespace janderson\net;
+namespace janderson;
  
 /**
  * The Buffer class represents a string of binary data which can be manipulated in pieces.

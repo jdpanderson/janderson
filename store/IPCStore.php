@@ -35,6 +35,11 @@ class IPCStore implements KeyValueStore
 		}
 	}
 
+	/**
+	 * Destroy any resources associated with this store. (SysV-SHM)
+	 *
+	 * Note: This should only be done if you're sure this is the last user of this store.
+	 */
 	public function destroy()
 	{
 		return @shm_remove($this->shm);

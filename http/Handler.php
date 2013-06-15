@@ -2,14 +2,14 @@
 /**
  * This file defines the HTTPHandler interface
  */
-namespace janderson\net\http;
+namespace janderson\http;
 
-use janderson\net\socket\Server;
-use janderson\net\socket\server\BaseHandler;
-use janderson\net\Buffer;
-use janderson\net\http\Request;
-use janderson\net\http\Response;
-use janderson\net\socket\Socket;
+use janderson\socket\Server;
+use janderson\socket\server\BaseHandler;
+use janderson\Buffer;
+use janderson\http\Request;
+use janderson\http\Response;
+use janderson\socket\Socket;
 
 /**
  * Implements an HTTPHandler Socket class.

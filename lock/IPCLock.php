@@ -5,6 +5,11 @@
 
 namespace janderson\lock;
 
+use \janderson\ipc\IPCKey;
+use \janderson\ipc\Semaphore;
+use \janderson\ipc\SharedMemory;
+use janderson\misc\Destroyable;
+
 /**
  * The IPCLock class uses SysV-IPC to perform machine-local locking.
  *
@@ -19,19 +24,16 @@ namespace janderson\lock;
  *     $lock->unlock();
  * }
  * </code>
+ *
+ * Note: You may notice that semaphore acquires are checked, but releases are not. This is simply because a failure usually means the semaphore has gone away. The any further attempt to acquire will fail. This is an error caused by the implementing software.
  */
-class IPCLock {
-	/**
-	 * The IPC key for sem and shm functions.
-	 *
-	 * @var int
-	 */
-	protected $key;
+class IPCLock implements Destroyable
+{
 
 	/**
 	 * The semaphore resource, as returned by sem_get.
 	 *
-	 * @var resource
+	 * @var Semaphore
 	 */
 	protected $sem;
 
@@ -51,20 +53,35 @@ class IPCLock {
 
 	/**
 	 * Initialize SysV shared memory and semaphores used for this lock type.
+	 *
+	 * Note: There are two effectively distinct constructors here:
+	 * - new self(scalar); // Create a new semaphore and shared memory segment with the given key.
+	 * - new self([Semaphore, SharedMemory]); // Use the given semaphore and shared memory. This must always be a pair; the reason for the pair rather than two arguments.
+	 *
+	 * @param mixed $key If a scalar value is given, it will be used as the IPC key. A semaphore and shared memory pair can also be passed directly: [$sem, $shm]
 	 */
-	public function __construct() {
-		if (!extension_loaded("sysvsem") || !extension_loaded("sysvshm")) {
-			throw new LockException("sysvsem and sysvshm modules required");
+	public function __construct($key = NULL) {
+		if (count($key) == 2) {
+			$this->sem = array_shift($key);
+			$this->shm = array_shift($key);
+			
+			if (!($this->sem instanceof Semaphore) || !($this->shm instanceof SharedMemory)) {
+				//var_dump(get_parent_class($this->sem), get_parent_class($this->shm));
+				throw new \InvalidArgumentException("Argument must be a Semaphore/SharedMemory pair");
+			}
+		} else {
+			$key = IPCKey::create($key);
+			$this->sem = new Semaphore($key);
+			$this->shm = new SharedMemory($key);
 		}
 
-		$this->key = mt_rand(1, mt_getrandmax());
-		if (($this->sem = sem_get($this->key)) === FALSE) {
-			throw new LockException("Failed to get semaphore");
+		if ($this->shm->isNew()) {
+			if (!$this->sem->acquire()) {
+				throw new LockException("Failed to acquire semaphore");
+			}
+			$this->shm->write((string)$this->locked);
+			$this->sem->release();
 		}
-		if (($this->shm = shm_attach($this->key)) === FALSE) {
-			throw new LockException("Failed to attach shared memory");
-		}
-		shm_put_var($this->shm, 0, $this->locked);
 	}
 
 	/**
@@ -74,7 +91,6 @@ class IPCLock {
 		if ($this->locked) {
 			$this->unlock();
 		}
-		shm_detach($this->shm);
 	}
 
 	/**
@@ -83,8 +99,16 @@ class IPCLock {
 	 * This lock type must take special care to only destroy references once after execution is complete, or other processes may encounter errors. (E.g. removal or detchment of semaphores or shared memory before other processes expect them to disappear.)
 	 */
 	public function destroy() {
-		sem_remove($this->sem);
-		shm_remove($this->shm);
+		$this->__destruct();
+
+		if (isset($this->sem)) {
+			$this->sem->destroy();
+			$this->sem = NULL;
+		}
+		if (isset($this->shm)) {
+			$this->shm->destroy();
+			$this->shm = NULL;
+		}
 	}
 
 	/**
@@ -104,18 +128,29 @@ class IPCLock {
 	 * @return bool Returns true if a lock was successful, false otherwise.
 	 */
 	public function trylock() {
-		sem_acquire($this->sem);
-		$lock = shm_get_var($this->shm, 0);
+		if ($this->locked) {
+			/* Double-lock */
+			return FALSE;
+		}
 
-		if ($lock > 0) {
-			sem_release($this->sem);
+		if (!$this->sem->acquire()) {
+			return FALSE;
+		}
+
+		$locked = (int)$this->shm->read(1);
+
+		if ($locked > 0) {
+			$this->sem->release();
 			return FALSE;
 		}
 
 		$this->locked = 1;
-		shm_put_var($this->shm, 0, $this->locked);
-		sem_release($this->sem);
-		return TRUE;
+		if (!($written = $this->shm->write((string)$this->locked))) {
+			$this->locked = 0;
+		}
+		$this->sem->release();
+
+		return (bool)$this->locked;
 	}
 
 	/**
@@ -129,10 +164,14 @@ class IPCLock {
 			return TRUE;
 		}
 
-		sem_acquire($this->sem);
+		if (!$this->sem->acquire()) {
+			return FALSE;
+		}
+
+		/* Note: failure here isn't checked, as it likely means the shm/sem has been deleted. This is likely an issue with the parent program destroying resources before it was supposed to. */
 		$this->locked = 0;
-		shm_put_var($this->shm, 0, $this->locked);
-		sem_release($this->sem);
+		$this->shm->write((string)$this->locked);
+		$this->sem->release();
 
 		return TRUE;
 	}

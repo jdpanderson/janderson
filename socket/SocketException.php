@@ -2,7 +2,7 @@
 /**
  * This file defines the socket Exception class
  */
-namespace janderson\net\socket;
+namespace janderson\socket;
 
 /**
  * Exception

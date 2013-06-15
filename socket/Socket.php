@@ -1,6 +1,6 @@
 <?php
 
-namespace janderson\net\socket;
+namespace janderson\socket;
 
 /**
  * Object-Oriented wrapper around the PHP Socket interface.
@@ -20,18 +20,20 @@ class Socket {
 	const ERRMODE_EXCEPTION = 1;
 
 	/**
-	 * @return array
+	 * 
+	 * @param bool $any If true, will return the last error for any socket, not just this one.
+	 * @return [int, string] An errno, error string tuple.
 	 */
-	public function getError() {
-		$errno = isset($this->socket) ? socket_last_error($this->socket) : socket_last_error();
+	public function getError($any = FALSE) {
+		$errno = ($any || !isset($this->socket)) ? socket_last_error() : socket_last_error($this->socket);
 		$error = socket_strerror($errno);
 
 		return array($errno, $error);
 	}
 
-	private function error($function) {
+	private function error($function, $any = FALSE) {
 		if ($this->errorMode == self::ERRMODE_EXCEPTION) {
-			list($errno, $error) = $this->getError();
+			list($errno, $error) = $this->getError($any);
 
 			throw new SocketException(sprintf("%s::%s: %s", __CLASS__, $function, $error), $errno);
 		}
@@ -213,7 +215,9 @@ class Socket {
 		$result = socket_select($read, $write, $except, $tv_sec, $tv_usec);
 
 		if ($result === FALSE) {
-			return $this->error(__FUNCTION__);
+			var_dump($result);
+			sleep(1);
+			return $this->error(__FUNCTION__, TRUE);
 		}
 
 		foreach (array('read', 'write', 'except') as $arrName) {

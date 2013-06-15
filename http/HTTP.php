@@ -2,7 +2,7 @@
 /**
  * This file defines the HTTP class, which includes definitions for a subset of RFC2616.
  */
-namespace janderson\net\http;
+namespace janderson\http;
 
 /**
  * HTTP

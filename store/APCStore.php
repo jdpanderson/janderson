@@ -5,7 +5,7 @@ namespace janderson\store;
 /**
  * An implementation of a Key-Value store that uses APC. The apc module is required.
  */
-class APCStore implements KeyValueStore
+class APCStore implements KeyValueStore, IncDecStore
 {
 	/**
 	 * Get a value stored in APC for a given key.
@@ -50,5 +50,27 @@ class APCStore implements KeyValueStore
 	public function flush()
 	{
 		return apc_clear_cache('user');
+	}
+
+	/**
+	 * Increment then get a value stored for a given key.
+	 *
+	 * @param mixed $key The key, usually a string.
+	 * @return mixed The value stored for the given key, or FALSE on failure.
+	 */
+	public function inc($key)
+	{
+		return apc_inc($key);
+	}
+
+	/**
+	 * Decrement then get a value stored for a given key.
+	 *
+	 * @param mixed $key The key, usually a string.
+	 * @return mixed The value stored for the given key, or FALSE on failure.
+	 */
+	public function dec($key)
+	{
+		return apc_dec($key);
 	}
 }

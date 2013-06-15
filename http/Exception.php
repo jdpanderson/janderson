@@ -2,7 +2,7 @@
 /**
  * This file defines the HTTP Exception class
  */
-namespace janderson\net\http;
+namespace janderson\http;
 
 /**
  * Exception

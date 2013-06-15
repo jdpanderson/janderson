@@ -2,9 +2,9 @@
 /**
  * This file defines the JSONRPCDispatcher interface
  */
-namespace janderson\net\http;
+namespace janderson\http;
 
-use \janderson\net\socket\server\Dispatchable;
+use \janderson\socket\server\Dispatchable;
 
 /**
  * JSONRPCDispatcher
@@ -31,7 +31,8 @@ class JSONRPCDispatcher implements Dispatchable {
 
 	public function __construct($services = array()) {
 		foreach ($services as $service) {
-			$className = array_pop(explode("\\", get_class($service)));
+			$className = explode("\\", get_class($service));
+			$className = array_pop($className);
 			$this->services[$className] = $service;
 			$this->reflection[$className] = new \ReflectionObject($service);
 		}
