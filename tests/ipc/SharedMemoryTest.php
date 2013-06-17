@@ -11,7 +11,7 @@ class SharedMemoryTest extends \PHPUnit_Framework_TestCase
 		$shm = new SharedMemory();
 		$this->assertTrue($shm->write("test"));
 		$this->assertEquals("test", $shm->read(4));
-		$shm = NULL;
+		$shm->destroy();
 	}
 
 	public function testPrematureDestroy()
@@ -20,5 +20,26 @@ class SharedMemoryTest extends \PHPUnit_Framework_TestCase
 		$shm->destroy();
 		$this->assertFalse($shm->write("foo"));
 		$this->assertFalse($shm->read(4));
+	}
+
+	public function testTwoParallelInstances()
+	{
+		$shm1 = new SharedMemory("testKey");
+		$shm2 = new SharedMemory("testKey");
+
+		$this->assertTrue($shm1->write("test"));
+		$this->assertEquals("test", $shm2->read(4));
+
+		$shm1->__destruct();
+		unset($shm1);
+		$shm2->destroy();
+	}
+
+	/**
+	 * @expectedException janderson\ipc\IPCException
+	 */
+	public function testOpenFail()
+	{
+		$shm = new SharedMemorySpy();
 	}
 }

@@ -20,9 +20,14 @@ class Semaphore implements Destroyable
 	{
 		$key = IPCKey::create($key);
 
-		if (($this->sem = sem_get($key)) === FALSE) {
+		if ($this->get($key) === FALSE) {
 			throw new IPCException("Failed to get semaphore");
 		}
+	}
+
+	protected function get($key)
+	{
+		return $this->sem = sem_get($key, 1, 0600, 0);
 	}
 
 	public function acquire()

@@ -2,4 +2,6 @@
 
 namespace janderson\ipc;
 
-class IPCException extends \Exception;
+use \Exception;
+
+class IPCException extends Exception {}

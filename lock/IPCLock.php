@@ -117,7 +117,7 @@ class IPCLock implements Destroyable
 	public function lock() {
 		while (!$this->locked) {
 			if (!$this->trylock()) {
-				usleep(500);
+				//usleep(10);
 			}
 		}
 	}

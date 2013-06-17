@@ -2,12 +2,13 @@
 
 namespace janderson\socket\server;
 
-use \janderson\misc\Destroyable;
-use \janderson\socket\Socket;
-use \janderson\lock\Lock;
-use \janderson\lock\IPCLock;
-use \janderson\store\KeyValueStore;
-use \janderson\store\IPCStore;
+use janderson\misc\Destroyable;
+use janderson\socket\Socket;
+use janderson\lock\Lock;
+use janderson\lock\IPCLock;
+use janderson\store\KeyValueStore;
+use janderson\store\IPCStore;
+use janderson\ipc\MessageQueue;
 
 /**
  * Class ForkingServer
@@ -39,9 +40,23 @@ class ForkingServer extends Server {
 	/**
 	 * Lock before reading/writing shared data to/from APC shared memory.
 	 *
-	 * @var \janderson\lock\Lock;
+	 * @var janderson\lock\Lock;
 	 */
     protected $lock;
+
+    /**
+     * Parent sets status into shared storage for all children to read.
+     *
+     * @var janderson\store\KeyValueStore
+     */
+    protected $store;
+
+    /**
+     * Children dump their status into the queue to be read by the parent.
+     *
+     * @var janderson\ipc\MessageQueue
+     */
+    protected $queue;
 
 	/**
 	 * Keep track of the incoming connection attempt number, so that only one child performs an accept call.
@@ -70,33 +85,35 @@ class ForkingServer extends Server {
 	 */
 	protected $processTimestamps = array();
 
-	public function __construct(Socket $socket, $handlerClass, Lock $lock = NULL, KeyValueStore $store = NULL) {
-		$this->lock = isset($lock) ? $lock : new IPCLock(); /* Allow any lock, but default to IPCLock */
-		$this->store = isset($store) ? $store : new IPCStore(); /* Allow any store, but default to IPCStore */
+	public function __construct(Socket $socket, $handler) {
+		$this->lock = new IPCLock();
+		$this->store = new IPCStore();
+		$this->queue = new MessageQueue();
 
-		$this->store->set(self::KEY_STATUS_CHILD, array(), 86400);
 		$this->store->set(self::KEY_SERIAL, 0, 86400);
 
-		parent::__construct($socket, $handlerClass);
+		parent::__construct($socket, $handler);
 	}
 
 	public function __destruct() {
 		/* If we're the parent, do some cleanup. */
 		if (!$this->child_id) {
-			$this->store->delete(self::KEY_STATUS_CHILD);
 			$this->store->delete(self::KEY_SERIAL);
 
-			if ($this->store instanceof Destroyable) {
-				$this->store->destroy();
-			}
-
-			if ($this->lock instanceof Destroyable) {
-				$this->lock->destroy();
+			foreach (array($this->store, $this->lock, $this->queue) as $destroyable) {
+				if ($destroyable instanceof Destroyable) {
+					$destroyable->destroy();
+				}
 			}
 		}
 	}
 
-	private $statusTs;
+	/**
+	 * The last time we've sent a status update to the parent. Unix timestamp.
+	 *
+	 * @var int
+	 */
+	private $statusTs = 0;
 
 	/**
 	 * Communicate the child status to the parent.
@@ -106,23 +123,13 @@ class ForkingServer extends Server {
 	protected function setChildStatus($checkTs = TRUE) {
 		$time = time();
 
-		if ($checkTs && $this->statusTs && $this->statusTs == $time) {
+		if ($checkTs && ($time - $this->statusTs) < 5) {
 			return;
 		}
 
-		$success = FALSE;
-		if (($child_status = $this->store->get(self::KEY_STATUS_CHILD)) !== FALSE) {
-			/* For the child, we set the status in the array. For the parent, we clear it all. */
-			if ($this->child_id) {
-				$child_status[$this->child_id] = array(time(), count($this->sockets));
-			} else {
-				$child_status = array();
-			}
-			if ($this->store->set(self::KEY_STATUS_CHILD, $child_status, 3600)) {
-				$this->statusTs = $time;
-				$success = TRUE;
-			}
-		}
+		$status = array($this->child_id, $time, count($this->children)); /* FIXME: $this->children is a property of the parent. Consider making this getChildCount or something. */
+		$success = $this->queue->send($status);
+		$this->statusTs = $time;
 
 		if (!$success) {
 			// XXX FIXME: Add a log notice/warning here, noting that we couldn't communicate child status.
@@ -135,25 +142,29 @@ class ForkingServer extends Server {
 	 * @return mixed[]
 	 */
 	protected function getChildStatus() {
-		return $this->store->get(self::KEY_STATUS_CHILD);
+		$status = array();
+		while ($s = $this->queue->receive()) {
+			$status[] = $s;
+		}
+		return $status;
 	}
 
 	protected function getSerial() {
-		$this->serial = $this->store->get(self::KEY_SERIAL);
+		return $this->store->get(self::KEY_SERIAL);
 	}
 
+	/**
+	 * Note: expects to be holding the lock.
+	 */
 	protected function incrementSerial() {
-		$this->lock->lock();
 		$serial = $this->store->get(self::KEY_SERIAL);
 		$result = $this->store->set(self::KEY_SERIAL, ++$serial);
-		$this->lock->unlock();
-
 		return $result;
 	}
 
 	protected function select() {
 		$this->lock->lock();
-		$this->getSerial();
+		$this->serial = $this->getSerial();
 		$this->setChildStatus();
 		$this->lock->unlock();
 
@@ -161,24 +172,33 @@ class ForkingServer extends Server {
 	}
 
 	protected function accept() {
-		$return = NULL;
+		$return = TRUE;
 
-		if (is_int($this->serial)) {
-			$this->lock->lock();
-
-			$serial = $this->getSerial();
-			if ($this->serial === $serial) {
-				while ($this->incrementSerial() === FALSE) {
-					$this->log('Warning: Failed to increment serial. Will retry.');
-					usleep(1000);
-				}
-				$this->log("Child {$this->child_id} accepting.");
-				$return = parent::accept();
-				$this->setChildStatus(FALSE);
-			}
-
-			$this->lock->unlock();
+		/* Bad state - haven't select()'ed yet. */
+		if (!is_int($this->serial)) {
+			return TRUE;
 		}
+			
+		/* Check if we've missed the boat. */
+		$serial = $this->getSerial();
+		if ($this->serial != $serial) {
+			return TRUE;
+		}
+		
+		$this->lock->lock();
+		$serial = $this->getSerial();
+		if ($this->serial == $serial) {
+			while ($this->incrementSerial() === FALSE) {
+				$this->log('Warning: Failed to increment serial. Will retry.');
+				usleep(100);
+			}
+			$this->log("Child {$this->child_id} accepting.");
+			$return = parent::accept();
+			$this->setChildStatus(FALSE);
+		} else {
+			//echo "$this->serial is not $serial, not accepting\n";
+		}
+		$this->lock->unlock();
 
 		return $return;
 	}
@@ -194,8 +214,8 @@ class ForkingServer extends Server {
 		 */
 		while (TRUE) {
 			$this->lock->lock();
-			echo "Got status from children: " . print_r($this->getChildStatus(), TRUE) . "\n";
-			$this->setChildStatus();
+			//echo "Got status from children: " . json_encode($this->getChildStatus()) . "\n";
+			//$this->setChildStatus();
 			$this->lock->unlock();
 
 			if (count($this->processes) < $processes) {
@@ -230,5 +250,13 @@ class ForkingServer extends Server {
 		} else {
 			echo "done...\n";
 		}
+	}
+
+	protected function close(Socket &$socket) {
+		$resourceId = $socket->getResourceId();
+
+		//echo "Child {$this->child_id} Closing socket with resourceId $resourceId\n";
+
+		parent::close($socket);
 	}
 }

@@ -123,6 +123,7 @@ class Socket {
 	 * @return void
  	 */
 	public function close() {
+		//echo "Closing socket with resourceId {$this->getResourceId()}\n";
 		socket_close($this->socket);
 	}
 

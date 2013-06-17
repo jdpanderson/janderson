@@ -51,6 +51,7 @@ class Server {
 	 * @throws SocketException An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
 	 */
 	public function __construct(Socket $socket, $handler) {
+		echo "Starting server with socket resource {$socket->getResourceId()}\n";
 		$this->socket = $socket;
 		$this->handler = $handler;
 	}
@@ -67,18 +68,28 @@ class Server {
 			}
 
 			foreach ($err as $socket) {
+				//echo "Error in {$socket->getResourceId()}\n";
 				$this->error($socket);
 			}
 
 			foreach ($wready as $socket) {
-				$this->send($socket) || $this->close($socket);
+				if (!$this->send($socket)) {
+					//echo "Error in {$socket->getResourceId()} send\n";
+					$this->close($socket);
+				}
 			}
 
 			foreach ($rready as $socket) {
 				if ($socket === $this->socket) {
-					$this->accept() || $this->error($socket);
+					if (!$this->accept()) {
+						//echo "Error in {$socket->getResourceId()} accept\n";
+						$this->error($socket);
+					}
 				} else {
-					$this->recv($socket) || $this->close($socket);
+					if (!$this->recv($socket)) {
+						//echo "Error in {$socket->getResourceId()} recv\n";
+						$this->close($socket);
+					}
 				}
 			}
 		}
@@ -92,7 +103,7 @@ class Server {
 		if ($socket === $this->socket) {
 			$this->stop();
 		}
-		$this->log("Socket $socket in error state. Closing.");
+		$this->log("Socket {$socket->getResourceId()} in error state. Closing.");
 		$this->close($socket);
 		return FALSE;
 	}
@@ -118,7 +129,7 @@ class Server {
 		try {
 			$socket = $this->socket->accept();
 		} catch (\Exception $e) {
-			$this->log("Failed to accept remote socket.");
+			echo "Failed to accept remote socket: {$e->getMessage()}\n";
 			return FALSE;
 		}
 
@@ -131,6 +142,7 @@ class Server {
 			&$buffer,
 			new $handler($buffer)
 		);
+		//echo "Accept returning TRUE!\n";
 		return TRUE;
 	}
 
@@ -150,6 +162,11 @@ class Server {
 			list($buf, $len) = $socket->recv(self::RCV_MAX_LEN);
 			$buffer .= $buf;
 			$length += $len;
+
+			/* Overrun the receive buffer. This should probably be handled differently. the*/
+			if ($length > self::BUF_MAX_LEN) {
+				return FALSE;
+			}
 		} while ($len == self::RCV_MAX_LEN);
 
 		/* 0-length read on its own means the socket has been closed. */

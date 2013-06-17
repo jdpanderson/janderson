@@ -32,7 +32,21 @@ class SharedMemory implements Destroyable
 	public function __construct($key = NULL, $size = 1024)
 	{
 		$key = IPCKey::create($key);
+		
+		if (!$this->open($key, $size)) {
+			throw new IPCException("Failed to attach shared memory");
+		}
+	}
 
+	/**
+	 * Open the shared memory block.
+	 *
+	 * @param mixed $key A value to be used as the shared memory key.
+	 * @param int $size The size of the shared memory segment to create, in bytes.
+	 * @return bool True if successful.
+	 */
+	protected function open($key, $size)
+	{
 		/* shmop_open can emit warnings for errors we're already catching. Catch the warnings, saving useless log entries. */
 		$orig_handler = set_error_handler(function() {}, E_WARNING);
 
@@ -47,10 +61,8 @@ class SharedMemory implements Destroyable
 
 		/* Restore the error handler */
 		set_error_handler($orig_handler, E_WARNING);
-		
-		if ($this->shm === FALSE) {
-			throw new IPCException("Failed to attach shared memory");
-		}
+
+		return $this->shm !== FALSE;
 	}
 
 	/**
@@ -60,6 +72,7 @@ class SharedMemory implements Destroyable
 	{
 		if (isset($this->shm)) {
 			shmop_close($this->shm);
+			$this->shm = NULL;
 		}
 	}
 

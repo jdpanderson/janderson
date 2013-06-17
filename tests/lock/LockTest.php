@@ -45,17 +45,5 @@ abstract class LockTest extends \PHPUnit_Framework_TestCase
 		$this->assertEquals(TRUE, $this->lock->unlock());
 	}
 
-	/**
-	 * The example lock is kind enough to warn us if we're going to deadlock a single process.
-	 */
-	public function testExampleDeadlockException()
-	{
-		if ($this->lock instanceof \janderson\lock\ExampleLock) {
-			$this->setExpectedException('janderson\lock\LockException');
-			$this->lock->lock();
-			$this->lock->lock();
-		} else {
-			$this->assertFalse($this->lock instanceof janderson\lock\ExampleLock);
-		}
-	}
+
 }
