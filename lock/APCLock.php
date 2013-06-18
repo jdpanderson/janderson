@@ -51,11 +51,50 @@ class APCLock {
 			$this->key = $key;
 		}
 
+		if (!$this->init()) {
+			throw new LockException("unable to store initial value for lock");
+		}
+	}
+
+	/**
+	 * Initialize the lock value, if appropriate.
+	 *
+	 * If the value exists, leave it be. If not, set it to unlocked.
+	 *
+	 * @return bool True if the lock value could be initialized correctly, or was already initialized.
+	 */
+	protected function init()
+	{
 		if (!apc_exists($this->key)) {
-			if (!apc_store($this->key, 0)) {
-				throw new LockException("unable to store initial value for lock");
+			if (!$this->store((int)$this->locked)) {
+				return FALSE;
 			}
 		}
+		return TRUE;
+	}
+
+	/**
+	 * Wrap around apc_inc to improve testability.
+	 */
+	protected function inc()
+	{
+		return apc_inc($this->key);
+	}
+
+	/**
+	 * Wrap around apc_dec to improve testability.
+	 */
+	protected function dec()
+	{
+		return apc_dec($this->key);
+	}
+
+	/**
+	 * Wrap around apc_store to improve testability.
+	 */
+	protected function store($value)
+	{
+		return apc_store($this->key, $value);
 	}
 
 	/**
@@ -71,6 +110,7 @@ class APCLock {
 	 * Remove the lock key from APC.
 	 */
 	public function destroy() {
+		$this->locked = FALSE;
 		apc_delete($this->key);
 	}
 
@@ -95,14 +135,14 @@ class APCLock {
 			return FALSE;
 		}
 
-		$value = apc_inc($this->key);
+		$value = $this->inc();
 
 		if ($value === 1) {
 			$this->locked = TRUE;
 			return TRUE;
 		} elseif ($value !== FALSE) {
 			/* If we successfully incremented the key but didn't get the lock, we have to decrement it again. */
-			while (apc_dec($this->key) === FALSE) {
+			while ($this->dec() === FALSE) {
 				usleep(500);
 			}
 		}
@@ -120,7 +160,7 @@ class APCLock {
 			return TRUE; /* Double-unlock. Not harmful, but means something isn't right. */
 		}
 
-		while (apc_dec($this->key) === FALSE) {
+		while ($this->dec() === FALSE) {
 			usleep(500);
 		}
 
