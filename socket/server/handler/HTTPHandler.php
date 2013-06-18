@@ -82,6 +82,7 @@ class HTTPHandler {
 
 		$this->response = new Response($this->request);
 		$this->response->setContent("test");
+		usleep(10000); // Simulate a request that takes 10ms to process.
 
 		list($buf, $len) = $this->response->getBuffer();
 

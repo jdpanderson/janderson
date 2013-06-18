@@ -38,7 +38,7 @@ class ForkingServer extends Server {
 	const KEY_SERIAL = "ForkingServer::ConnNo";
 
 	/**
-	 * Lock before reading/writing shared data to/from APC shared memory.
+	 * The lock holder gets to select on the listen socket.
 	 *
 	 * @var janderson\lock\Lock;
 	 */
@@ -57,13 +57,6 @@ class ForkingServer extends Server {
      * @var janderson\ipc\MessageQueue
      */
     protected $queue;
-
-	/**
-	 * Keep track of the incoming connection attempt number, so that only one child performs an accept call.
-	 *
-	 * @var int
-	 */
-	protected $serial;
 
 	/**
 	 * The serial number of the child, or 0/NULL for the parent process.
@@ -89,8 +82,6 @@ class ForkingServer extends Server {
 		$this->lock = new IPCLock();
 		$this->store = new IPCStore();
 		$this->queue = new MessageQueue();
-
-		$this->store->set(self::KEY_SERIAL, 0, 86400);
 
 		parent::__construct($socket, $handler);
 	}
@@ -149,57 +140,21 @@ class ForkingServer extends Server {
 		return $status;
 	}
 
-	protected function getSerial() {
-		return $this->store->get(self::KEY_SERIAL);
-	}
+	protected function select($listen = TRUE) {
+		$listen = $listen ? $this->lock->trylock() : FALSE;
 
-	/**
-	 * Note: expects to be holding the lock.
-	 */
-	protected function incrementSerial() {
-		$serial = $this->store->get(self::KEY_SERIAL);
-		$result = $this->store->set(self::KEY_SERIAL, ++$serial);
-		return $result;
-	}
+		$return = parent::select($listen);
 
-	protected function select() {
-		$this->lock->lock();
-		$this->serial = $this->getSerial();
-		$this->setChildStatus();
-		$this->lock->unlock();
+		if ($listen && !in_array($this->socket, $return[1], TRUE)) {
+			$this->lock->unlock();
+		}
 
-		return parent::select();
+		return $return;
 	}
 
 	protected function accept() {
-		$return = TRUE;
-
-		/* Bad state - haven't select()'ed yet. */
-		if (!is_int($this->serial)) {
-			return TRUE;
-		}
-			
-		/* Check if we've missed the boat. */
-		$serial = $this->getSerial();
-		if ($this->serial != $serial) {
-			return TRUE;
-		}
-		
-		$this->lock->lock();
-		$serial = $this->getSerial();
-		if ($this->serial == $serial) {
-			while ($this->incrementSerial() === FALSE) {
-				$this->log('Warning: Failed to increment serial. Will retry.');
-				usleep(100);
-			}
-			$this->log("Child {$this->child_id} accepting.");
-			$return = parent::accept();
-			$this->setChildStatus(FALSE);
-		} else {
-			//echo "$this->serial is not $serial, not accepting\n";
-		}
+		$return = parent::accept();
 		$this->lock->unlock();
-
 		return $return;
 	}
 
@@ -213,10 +168,8 @@ class ForkingServer extends Server {
 		 * Start managing processes!
 		 */
 		while (TRUE) {
-			$this->lock->lock();
 			//echo "Got status from children: " . json_encode($this->getChildStatus()) . "\n";
 			//$this->setChildStatus();
-			$this->lock->unlock();
 
 			if (count($this->processes) < $processes) {
 				$child_id++;

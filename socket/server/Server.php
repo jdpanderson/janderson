@@ -19,7 +19,7 @@ class Server {
 	 */
 	const RCV_MAX_LEN = 4096;
 
-	const SELECT_TIMEOUT = 5;
+	const SELECT_TIMEOUT = 0.1;
 
 	/**
 	 * The listen socket.
@@ -108,8 +108,13 @@ class Server {
 		return FALSE;
 	}
 
-	protected function select() {
-		$readers = array($this->socket);
+	/**
+	 * Perform a select, likely including the listen socket.
+	 *
+	 * @param bool $listen If true, also select on the listen socket. (Default.)
+	 */
+	protected function select($listen = TRUE) {
+		$readers = $listen ? array($this->socket) : array();
 		$writers = array();
 		foreach ($this->children as $child) {
 			list($socket, $buffer, $handler) = $child;
@@ -120,7 +125,14 @@ class Server {
 		}
 
 		$err = $readers;
-		$num = $this->socket->select($readers, $writers, $err, self::SELECT_TIMEOUT);
+
+		if (empty($readers) && empty($writers)) {
+			//echo "No readers or writers\n";
+			usleep(self::SELECT_TIMEOUT * 1000000);
+			$num = 0;
+		} else {
+			$num = $this->socket->select($readers, $writers, $err, self::SELECT_TIMEOUT);
+		}
 
 		return array($num, $readers, $writers, $err);
 	}
