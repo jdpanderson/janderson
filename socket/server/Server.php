@@ -51,7 +51,6 @@ class Server {
 	 * @throws SocketException An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
 	 */
 	public function __construct(Socket $socket, $handler) {
-		echo "Starting server with socket resource {$socket->getResourceId()}\n";
 		$this->socket = $socket;
 		$this->handler = $handler;
 	}

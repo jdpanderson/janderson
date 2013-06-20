@@ -2,12 +2,14 @@
 
 namespace janderson\socket\server\handler;
 
+use janderson\socket\server\ProtocolHandler;
+
 /**
  * Example handler, echoes any input until the client disconnects.
  *
  * This should be compatible with RFC862, but this has not been tested.
  */
-class EchoHandler
+class EchoHandler implements ProtocolHandler
 {
 	/**
 	 * A local reference to the write buffer.

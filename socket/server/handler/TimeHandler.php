@@ -2,12 +2,14 @@
 
 namespace janderson\socket\server\handler;
 
+use janderson\socket\server\ProtocolHandler;
+
 /**
  * Example handler, daytime service.
  *
  * This should be compatible with RFC867 if run on TCP port 37, but this has not been tested.
  */
-class TimeHandler
+class TimeHandler implements ProtocolHandler
 {
 	/**
 	 * Seconds between Jan 1 1900 and Jan 1 1970

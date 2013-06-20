@@ -4,17 +4,19 @@
  */
 namespace janderson\socket\server\handler;
 
+use janderson\socket\server\ProtocolHandler;
 use janderson\socket\Server;
-use janderson\socket\server\BaseHandler;
 use janderson\Buffer;
 use janderson\http\Request;
 use janderson\http\Response;
+use janderson\http\HTTPException;
 use janderson\socket\Socket;
 
 /**
  * Implements an HTTPHandler Socket class.
  */
-class HTTPHandler {
+class HTTPHandler implements ProtocolHandler
+{
 	/**
 	 * Write buffer
 	 *
@@ -44,11 +46,11 @@ class HTTPHandler {
 	protected $request;
 	protected $response;
 
-	public function getRequest() {
+	public function &getRequest() {
 		return $this->request;
 	}
 
-	public function getResponse($response) {
+	public function &getResponse() {
 		return $this->response;
 	}
 
@@ -124,22 +126,18 @@ class HTTPHandler {
 		foreach (array("\r\n" => 2, "\n" => 1, "\r" => 1) as $eol => $eollen) {
 			$dbleollen = $eollen << 1; /* $eollen * 2, slightly faster */
 
-			if ($eolpos = strpos($this->rbuffer, $eol . $eol)) {
+			if (($eolpos = strpos($this->rbuffer, $eol . $eol)) !== FALSE) {
 				$lines = substr($this->rbuffer, 0, $eolpos + $dbleollen);
 				$lines = explode($eol, $lines);
 
 				$this->rbuffer = substr($this->rbuffer, $eolpos + $dbleollen);
 				$this->rbuflen -= $eolpos + $dbleollen;
 
-				if (empty($lines)) {
-					throw new Exception("Invalid request: no headers found.");
-				}
-
 				/* Parse and validate the request line */
 				$request = explode(" ", array_shift($lines));
 
 				if (count($request) != 3) {
-					throw new Exception("Malformed request line");
+					throw new HTTPException("Malformed request line");
 				}
 
 				/* Parse and validate the headers */
@@ -150,7 +148,7 @@ class HTTPHandler {
 					$header = explode(":", $line, 2);
 
 					if (count($header) != 2) {
-						throw new Exception("Malformed header line");
+						throw new HTTPException("Malformed header line");
 					}
 
 					$headers[strtolower(trim($header[0]))] = trim($header[1]);
