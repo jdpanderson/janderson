@@ -11,6 +11,7 @@ use janderson\socket\server\ProtocolHandler;
  */
 class DaytimeHandler implements ProtocolHandler
 {
+	const DATE_FORMAT = "l, F j, Y G:i:s-T";
 	/**
 	 * Write the date as soon as possible.
 	 *
@@ -18,7 +19,7 @@ class DaytimeHandler implements ProtocolHandler
 	 */
 	public function __construct(&$buffer)
 	{
-		$buffer = date("l, F j, Y G:i:s-T\r\n"); /* E.g. Tuesday, February 22, 1982 17:37:43-PST */
+		$buffer = date(self::DATE_FORMAT) . "\r\n"; /* E.g. Tuesday, February 22, 1982 17:37:43-PST */
 	}
 
 	/**
