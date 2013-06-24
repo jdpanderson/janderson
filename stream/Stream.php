@@ -1,4 +1,9 @@
 <?php
+/**
+ * This code is incomplete.
+ *
+ * The idea is to provide compatible interfaces between sockets and streams such that either mechanism could be used for serving. This is 0% complete.
+ */
 
 namespace janderson\stream;
 

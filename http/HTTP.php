@@ -23,6 +23,7 @@ class HTTP {
 	const METHOD_TRACE = 'TRACE';
 
 	const STATUS_CONTINUE = 100;
+	const STATUS_SWITCHING_PROTOCOLS = 101;
 	const STATUS_OK = 200;
 	const STATUS_MOVED_PERMANENTLY = 301;
 	const STATUS_FOUND = 302;
@@ -33,6 +34,7 @@ class HTTP {
 	const STATUS_NOT_FOUND = 404;
 	const STATUS_PROXY_AUTH_REQUIRED = 407;
 	const STATUS_REQUEST_TIMEOUT = 408;
+	const STATUS_UPGRADE_REQUIRED = 426;
 	const STATUS_INTERNAL_SERVER_ERROR = 500;
 	const STATUS_SERVICE_UNAVAILABLE = 503;
 	const STATUS_VERSION_NOT_SUPPORTED = 505;
@@ -64,6 +66,7 @@ class HTTP {
 	public static function getStatusString($statusCode) {
 		static $strings = array(
 			self::STATUS_CONTINUE => "Continue",
+			self::STATUS_SWITCHING_PROTOCOLS => "Switching Protocols",
 			self::STATUS_OK => "OK",
 			self::STATUS_MOVED_PERMANENTLY => "Moved Permanently",
 			self::STATUS_FOUND => "Found",
@@ -74,6 +77,7 @@ class HTTP {
 			self::STATUS_NOT_FOUND => "Not Found",
 			self::STATUS_PROXY_AUTH_REQUIRED => "Proxy Authentication Required",
 			self::STATUS_REQUEST_TIMEOUT => "Request Timeout",
+			self::STATUS_UPGRADE_REQUIRED => "Upgrade Required",
 			self::STATUS_INTERNAL_SERVER_ERROR => "Internal Server Error",
 			self::STATUS_SERVICE_UNAVAILABLE => "Service Unavailable",
 			self::STATUS_VERSION_NOT_SUPPORTED => "Version Not Supported",

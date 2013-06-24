@@ -82,15 +82,25 @@ class HTTPHandler implements ProtocolHandler
 			}
 		}
 
-		$this->response = new Response($this->request);
-		$this->response->setContent("test");
-		usleep(10000); // Simulate a request that takes 10ms to process.
+		$this->response = $this->dispatch($this->request);
 
 		list($buf, $len) = $this->response->getBuffer();
 
-		$this->buffer = $buf;
+		$this->buffer .= $buf;
 
 		return TRUE;
+	}
+
+	/**
+	 * Dispatch the request/response.
+	 */
+	protected function dispatch(&$request)
+	{
+		
+		$response = new Response($request);
+		$response->setContent("test");
+		usleep(10000); // Simulate a request that takes 10ms to process.
+		return $response;
 	}
 
 	/**
