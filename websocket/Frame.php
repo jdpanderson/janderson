@@ -137,7 +137,6 @@ class Frame {
 			}
 
 			if ($mask) {
-				var_dump(unpack("na/Nb", $buf), $buf);
 				list(/*ign*/, $key) = array_values(unpack("na/Nb", $buf));
 			}
 		}
@@ -154,7 +153,7 @@ class Frame {
 				($key & 0xff000000) >> 24,
 				($key & 0x00ff0000) >> 16,
 				($key & 0x0000ff00) >> 8,
-				($key & 0x000000ff)
+				$key & 0x000000ff
 			);
 
 			for ($i = 0, $j = 0; $i < $len; $i++, $j++) {
@@ -183,5 +182,35 @@ class Frame {
 		$this->mask = $mask;
 		$this->len = $len;
 		$this->payload = $payload;
+	}
+
+	public function isFin()
+	{
+		return $this->fin;
+	}
+
+	public function getOpcode()
+	{
+		return $this->opcode;
+	}
+
+	public function isMasked()
+	{
+		return isset($this->mask);
+	}
+
+	public function getMask()
+	{
+		return $this->mask;
+	}
+
+	public function getLength()
+	{
+		return $this->len;
+	}
+
+	public function getPayload()
+	{
+		return $this->payload;
 	}
 }
