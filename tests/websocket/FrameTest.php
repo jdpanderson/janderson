@@ -6,6 +6,28 @@ use janderson\websocket\Frame;
 
 class FrameTest extends \PHPUnit_Framework_TestCase
 {
+	/**
+	 * @dataProvider failureProvider
+	 */
+	public function testUnpackFailure($buf, $buflen)
+	{
+		$this->assertFalse(Frame::unpack($buf, $buflen));
+	}
+
+	public function failureProvider()
+	{
+		return array(
+			list($buf, $buflen) = array("", 0), /* No data. */
+			list($buf, $buflen) = $this->exampleToBinary("0x81 0x05"), /* short frame, header only, not enough data. */
+			list($buf, $buflen) = $this->exampleToBinary("0x81 0x85"), /* short masked frame, header only, not enough data. */
+			list($buf, $buflen) = $this->exampleToBinary("0x82 0xFE 0x01 0x00"), /* medium masked frame, partial header only. */
+			list($buf, $buflen) = $this->exampleToBinary("0x82 0xFE 0x01 0x00 0x01 0x02 0x03 0x03"), /* medium masked frame, header only, not enough data. */
+			list($buf, $buflen) = $this->exampleToBinary("0x82 0x7F 0x00 0x00"), /* long masked frame, partial header only */
+			list($buf, $buflen) = $this->exampleToBinary("0x82 0x7F 0x00 0x00 0x00 0x00 0x00 0x01 0x00 0x00"), /* long unmasked frame, header only, not enough data */ 
+			list($buf, $buflen) = $this->exampleToBinary("0x82 0xFF 0x00 0x00 0x00 0x00 0x00 0x01 0x00 0x00 0x01 0x02 0x03 0x04"), /* long masked frame, header only, not enough data */ 
+		);
+	}
+
 	public function testDocumentedExamples()
 	{
 		/* Unmasked "Hello" */
@@ -67,6 +89,20 @@ class FrameTest extends \PHPUnit_Framework_TestCase
 		$this->assertTrue($frame instanceof Frame);
 		$this->assertEquals(str_repeat("a", 256), $frame->getPayload());
 		$this->assertEquals(256, $frame->getLength());
+		$this->assertFalse($frame->isMasked());
+		$this->assertTrue($frame->isFin());
+		$this->assertEquals(Frame::OPCODE_BINARY, $frame->getOpcode());
+
+		/* Unmasked 65536 bytes of data */
+		$ex = "0x82 0x7F 0x00 0x00 0x00 0x00 0x00 0x01 0x00 0x00";
+		list($buf, $buflen) = $this->exampleToBinary($ex);
+		$buf .= str_repeat("a", 65536);
+		$buflen += 65536;
+
+		$frame = Frame::unpack($buf, $buflen);
+		$this->assertTrue($frame instanceof Frame);
+		$this->assertEquals(str_repeat("a", 65536), $frame->getPayload());
+		$this->assertEquals(65536, $frame->getLength());
 		$this->assertFalse($frame->isMasked());
 		$this->assertTrue($frame->isFin());
 		$this->assertEquals(Frame::OPCODE_BINARY, $frame->getOpcode());
