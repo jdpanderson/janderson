@@ -12,13 +12,50 @@ class FrameTest extends \PHPUnit_Framework_TestCase
 		$ex = "0x81 0x05 0x48 0x65 0x6c 0x6c 0x6f";
 		list($buf, $buflen) = $this->exampleToBinary($ex);
 
-		var_dump(Frame::unpack($buf, $buflen));
+		$frame = Frame::unpack($buf, $buflen);
+		$this->assertTrue($frame instanceof Frame);
+		$this->assertEquals("Hello", $frame->getPayload());
+		$this->assertEquals(5, $frame->getLength());
+		$this->assertFalse($frame->isMasked());
+		$this->assertTrue($frame->isFin());
+		$this->assertNull($frame->getMask());
+		$this->assertEquals(Frame::OPCODE_TEXT, $frame->getOpcode());
 
 		/* Masked "Hello" */
 		$ex = "0x81 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58";
 		list($buf, $buflen) = $this->exampleToBinary($ex);
+		list($mask, $masklen) = $this->exampleToBinary("0x37 0xfa 0x21 0x3d");
+		list($mask) = array_values(unpack("N", $mask));
 
-		var_dump(Frame::unpack($buf, $buflen));
+		$frame = Frame::unpack($buf, $buflen);
+		$this->assertTrue($frame instanceof Frame);
+		$this->assertEquals("Hello", $frame->getPayload());
+		$this->assertEquals(5, $frame->getLength());
+		$this->assertTrue($frame->isMasked());
+		$this->assertTrue($frame->isFin());
+		$this->assertEquals($mask, $frame->getMask());
+		$this->assertEquals(Frame::OPCODE_TEXT, $frame->getOpcode());
+
+		/* Fragmented "Hel" "lo" */
+		$ex = "0x01 0x03 0x48 0x65 0x6c";
+		list($buf, $buflen) = $this->exampleToBinary($ex);
+		$frame1 = Frame::unpack($buf, $buflen);
+		$ex = "0x80 0x02 0x6c 0x6f";
+		list($buf, $buflen) = $this->exampleToBinary($ex);
+		$frame2 = Frame::unpack($buf, $buflen);
+
+		$this->assertTrue($frame1 instanceof Frame);
+		$this->assertTrue($frame2 instanceof Frame);
+		$this->assertEquals("Hel", $frame1->getPayload());
+		$this->assertEquals("lo", $frame2->getPayload());
+		$this->assertEquals(3, $frame1->getLength());
+		$this->assertEquals(2, $frame2->getLength());
+		$this->assertFalse($frame1->isMasked());
+		$this->assertFalse($frame2->isMasked());
+		$this->assertFalse($frame1->isFin());
+		$this->assertTrue($frame2->isFin());
+		$this->assertEquals(Frame::OPCODE_TEXT, $frame1->getOpcode());
+		$this->assertEquals(Frame::OPCODE_CONTINUATION, $frame2->getOpcode());
 
 		/* Unmasked 256 bytes of data */
 		$ex = "0x82 0x7E 0x01 0x00";
@@ -26,7 +63,13 @@ class FrameTest extends \PHPUnit_Framework_TestCase
 		$buf .= str_repeat("a", 256);
 		$buflen += 256;
 
-		var_dump(Frame::unpack($buf, $buflen));
+		$frame = Frame::unpack($buf, $buflen);
+		$this->assertTrue($frame instanceof Frame);
+		$this->assertEquals(str_repeat("a", 256), $frame->getPayload());
+		$this->assertEquals(256, $frame->getLength());
+		$this->assertFalse($frame->isMasked());
+		$this->assertTrue($frame->isFin());
+		$this->assertEquals(Frame::OPCODE_BINARY, $frame->getOpcode());
 	}
 
 	/**
