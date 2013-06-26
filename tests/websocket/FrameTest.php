@@ -7,14 +7,14 @@ use janderson\websocket\Frame;
 class FrameTest extends \PHPUnit_Framework_TestCase
 {
 	/**
-	 * @dataProvider failureProvider
+	 * @dataProvider unpackFailureProvider
 	 */
 	public function testUnpackFailure($buf, $buflen)
 	{
 		$this->assertFalse(Frame::unpack($buf, $buflen));
 	}
 
-	public function failureProvider()
+	public function unpackFailureProvider()
 	{
 		return array(
 			list($buf, $buflen) = array("", 0), /* No data. */
@@ -106,6 +106,56 @@ class FrameTest extends \PHPUnit_Framework_TestCase
 		$this->assertFalse($frame->isMasked());
 		$this->assertTrue($frame->isFin());
 		$this->assertEquals(Frame::OPCODE_BINARY, $frame->getOpcode());
+	}
+
+	/**
+	 * @dataProvider unpackPackProvider
+	 */
+	public function testUnpackPack($ex, $add, $addlen)
+	{
+		/* Get the example, and unpack it. */
+		list($buf, $buflen) = $this->exampleToBinary($ex);
+		if ($add) {
+			$buf .= $add;
+			$buflen += $addlen;
+		}
+		$frame = Frame::unpack($buf, $buflen);
+
+
+		/* Re-pack the frame. */
+		list($checkBuf, $checkBufLen) = $frame->pack();
+
+		/* Re-generate the example buffer. */
+		list($buf, $buflen) = $this->exampleToBinary($ex);
+		if ($add) {
+			$buf .= $add;
+			$buflen += $addlen;
+		}
+
+		/* Compare the example to the re-packed version. */
+		$this->assertEquals($buf, $checkBuf, "Re-packed buffer not equal to the example buffer.");
+		$this->assertEquals($buflen, $checkBufLen, "Re-packed buffer length not equal to the example buffer length.");
+	}
+
+	public function testRandomMaskGeneration()
+	{
+		$payload = "Hello, world!";
+		$frame = new Frame(TRUE, Frame::OPCODE_TEXT, TRUE, strlen($payload), $payload);
+
+		list($packed, $packedlen) = $frame->pack();
+		$masked = substr($packed, -strlen($payload));
+		Frame::mask($masked, strlen($payload), $frame->getMask());
+		$this->assertEquals($payload, $masked);
+	}
+
+	public function unpackPackProvider()
+	{
+		return array(
+			array("0x81 0x05 0x48 0x65 0x6c 0x6c 0x6f", NULL, 0), /* Unmasked Hello */
+			array("0x81 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58", NULL, 0), /* Masked Hello */
+			array("0x82 0x7E 0x01 0x00", str_repeat("z", 256), 256), /* 256 bytes of unmasked binary data */
+			array("0x82 0x7F 0x00 0x00 0x00 0x00 0x00 0x01 0x00 0x00", str_repeat("z", 65536), 65536) /* 65536 bytes of unmasked binary data. */
+		);
 	}
 
 	/**

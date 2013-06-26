@@ -147,32 +147,56 @@ class Frame {
 
 		$payload = substr($buf, $headerlen, $len);
 
-		/* If masked, unmask the data (slow) */
+		/* If masked, (un)mask the data (slow) */
 		if ($mask) {
-			$keybytes = array(
-				($key & 0xff000000) >> 24,
-				($key & 0x00ff0000) >> 16,
-				($key & 0x0000ff00) >> 8,
-				$key & 0x000000ff
-			);
-
-			for ($i = 0, $j = 0; $i < $len; $i++, $j++) {
-				if ($j > 3) {
-					$j = 0;
-				}
-				$payload[$i] = chr(ord($payload[$i]) ^ $keybytes[$j]);
-			}
+			self::mask($payload, $len, $key);
 		}
 
 		/* We've successfully parsed and decoded the frame data, update the buffer. */
-		$buf = substr($buf, $headerlen + $len);
 		$buflen -= ($headerlen + $len);
+		$buf = $buflen ? substr($buf, $headerlen + $len) : "";
 
 		return new Frame($fin, $opcode, $key, $len, $payload);
 	}
 
 	public function pack() {
-		
+		/* opcode and Fin bit. */
+		$opcode = $this->opcode; 
+		if ($this->fin) {
+			$opcode |= (1 << 7);
+		}
+
+		/* length and mask bit. */
+		$length = $this->mask ? (1 << 7) : 0;
+
+		/* Add one of the three length encodings to the buffer */
+		if ($this->len <= 125) {
+			$length |= $this->len;
+			$buf = pack("C2", $opcode, $length);
+			$buflen = 2;
+		} elseif ($this->len <= 65535) {
+			$length |= 126;
+			$buf = pack("C2n", $opcode, $length, $this->len);
+			$buflen = 4;
+		} else {
+			$length |= 127;
+			$buf = pack("C2N2", $opcode, $length, $this->len >> 32, $this->len & 0xffffffff);
+			$buflen = 10;
+		}
+
+		/* Possibly add the mask to the buffer and mask the payload */
+		$payload = $this->payload;
+		if ($this->mask) {
+			$buf .= pack("N", $this->getMask());
+			$buflen += 4;
+			self::mask($payload, $this->len, $this->mask);
+		}
+
+		/* Add the (possibly masked) payload to the buffer */
+		$buf .= $payload;
+		$buflen += $this->len;
+
+		return array($buf, $buflen);
 	}
 
 	public function __construct($fin, $opcode, $mask, $len, $payload)
@@ -201,6 +225,10 @@ class Frame {
 
 	public function getMask()
 	{
+		/* If the mask was specified as a boolean, generate a random mask. */
+		if ($this->mask === TRUE) {
+			$this->mask = mt_rand(0, 2147483647) + mt_rand(1, 2147483647); /* Though cryptographically probably slightly worse, we want at least 1 because anything XOR 0 is itself. */
+		}
 		return $this->mask;
 	}
 
@@ -212,5 +240,21 @@ class Frame {
 	public function getPayload()
 	{
 		return $this->payload;
+	}
+
+	public static function mask(&$buf, $buflen, $key)
+	{
+		$keybytes = array(
+			($key & 0xff000000) >> 24,
+			($key & 0x00ff0000) >> 16,
+			($key & 0x0000ff00) >> 8,
+			$key & 0x000000ff
+		);
+
+		for ($i = 0, $j = 0; $i < $buflen; $i++, $j++) {
+			if ($j > 3) $j = 0;
+
+			$buf[$i] = chr(ord($buf[$i]) ^ $keybytes[$j]);
+		}
 	}
 }
