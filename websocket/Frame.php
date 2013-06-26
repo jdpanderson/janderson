@@ -30,7 +30,7 @@ namespace janderson\websocket;
  */
 
 /**
- * Frame
+ * Representation of a WebSocket Frame
  */
 class Frame {
 	/**
@@ -159,6 +159,11 @@ class Frame {
 		return new Frame($fin, $opcode, $key, $len, $payload);
 	}
 
+	/**
+	 * Pack the frame into a binary buffer
+	 *
+	 * @return string The frame object, encoded to a binary string according to the RFC.
+	 */
 	public function pack() {
 		/* opcode and Fin bit. */
 		$opcode = $this->opcode; 
@@ -201,28 +206,52 @@ class Frame {
 
 	public function __construct($fin, $opcode, $mask, $len, $payload)
 	{
-		$this->fin = $fin;
-		$this->opcode = $opcode;
-		$this->mask = $mask;
+		$this->fin = (bool)$fin;
+		$this->opcode = ((int)$opcode) & 0x0f;
+		if (!$mask) {
+			$this->mask = NULL;
+		} else {
+			$this->mask = ($mask === TRUE) ? $mask : $mask & 0xffffffff;
+		}
 		$this->len = $len;
 		$this->payload = $payload;
 	}
 
+	/**
+	 * Returns true if this is the last frame in a sequence.
+	 *
+	 * @return bool
+	 */
 	public function isFin()
 	{
 		return $this->fin;
 	}
 
+	/**
+	 * Returns the opcode for this frame.
+	 *
+	 * @return int
+	 */
 	public function getOpcode()
 	{
 		return $this->opcode;
 	}
 
+	/**
+	 * Is this frame masked?
+	 *
+	 * @return bool If true this frame is/was/will be masked
+	 */
 	public function isMasked()
 	{
-		return isset($this->mask);
+		return !empty($this->mask);
 	}
 
+	/**
+	 * Get the frame mask.
+	 *
+	 * @return int The 32-bit frame mask, or null if no mask is to be used.
+	 */
 	public function getMask()
 	{
 		/* If the mask was specified as a boolean, generate a random mask. */
@@ -232,16 +261,33 @@ class Frame {
 		return $this->mask;
 	}
 
+	/**
+	 * Get the payload length.
+	 *
+	 * @return int
+	 */
 	public function getLength()
 	{
 		return $this->len;
 	}
 
+	/**
+	 * Get the frame payload
+	 *
+	 * @return string
+	 */
 	public function getPayload()
 	{
 		return $this->payload;
 	}
 
+	/** 
+	 * Apply a mask to a binary buffer.
+	 *
+	 * @param string &$buf The buffer to be masked. The buffer is masked in-place.
+	 * @param int $buflen The length of the buffer.
+	 * @param int $key The 32-bit masking key.
+	 */
 	public static function mask(&$buf, $buflen, $key)
 	{
 		$keybytes = array(
