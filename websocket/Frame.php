@@ -208,11 +208,7 @@ class Frame {
 	{
 		$this->fin = (bool)$fin;
 		$this->opcode = ((int)$opcode) & 0x0f;
-		if (!$mask) {
-			$this->mask = NULL;
-		} else {
-			$this->mask = ($mask === TRUE) ? $mask : $mask & 0xffffffff;
-		}
+		$this->setMask($mask);
 		$this->len = $len;
 		$this->payload = $payload;
 	}
@@ -259,6 +255,16 @@ class Frame {
 			$this->mask = mt_rand(0, 2147483647) + mt_rand(1, 2147483647); /* Though cryptographically probably slightly worse, we want at least 1 because anything XOR 0 is itself. */
 		}
 		return $this->mask;
+	}
+
+	public function setMask($mask) {
+		if (is_int($mask)) {
+			$this->mask = $mask & 0xffffffff;
+		} elseif ($mask === TRUE) {
+			$this->mask = TRUE; /* Mask will be generated later. */
+		} else {
+			$this->mask = NULL; /* No mask. */
+		}
 	}
 
 	/**

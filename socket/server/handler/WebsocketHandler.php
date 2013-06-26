@@ -11,6 +11,8 @@ use janderson\http\HTTP;
 use janderson\http\Request;
 use janderson\http\Response;
 
+use janderson\websocket\Frame;
+
 /**
  * ASCII-art representation of a websocket frame, from RFC 6455
  *
@@ -41,12 +43,6 @@ use janderson\http\Response;
  */
 class WebsocketHandler extends HTTPHandler
 {
-	const OPCODE_CONTINUATION = 0;
-	const OPCODE_TEXT = 1;
-	const OPCODE_BINARY = 2;
-	const OPCODE_CLOSE = 8;
-	const OPCODE_PING = 9;
-	const OPCODE_PONG = 10;
 	/**
 	 * Supported websocket protocol version.
 	 */
@@ -59,7 +55,6 @@ class WebsocketHandler extends HTTPHandler
 
 	protected $rbuf = "";
 	protected $rbuflen = 0;
-	protected $wbuf;
 
 	/**
 	 * Are web in websocket mode, or passthru-to-HTTPHandler mode?
@@ -74,7 +69,6 @@ class WebsocketHandler extends HTTPHandler
 	protected function isWebSocketUpgrade($request)
 	{
 		return ($request->getVersion() == HTTP::VERSION_1_1) && (strtolower($request->getHeader('Connection')) == "upgrade") && (strtolower($request->getHeader('Upgrade')) == "websocket");
-
 	}
 
 	public function read($buf, $buflen)
@@ -83,18 +77,23 @@ class WebsocketHandler extends HTTPHandler
 			return parent::read($buf, $buflen);
 		}
 
-		list($c1, $c2) = array_values(unpack("C2", $buf));
-		list($t) = array_values(unpack('N', $buf));
+		$frame = Frame::unpack($buf, $buflen);
 
-		echo sprintf("First two shorts: $c1 (%s) $c2 (%s), as long: $t (%s)\n", decbin($c1), decbin($c2), decbin($t));
+		if ($frame instanceof Frame) {
+			$frame->setMask(NULL);
+			list($buf, $buflen) = $frame->pack();
 
-		echo "Hex: ";
-		foreach (str_split($buf) as $chr) {
-			echo sprintf("%02x", ord($chr));
+			$this->buffer .= $buf; /* Just echo the frame back for now. */
 		}
-		echo "\n";
+		
+		return TRUE;
+	}
 
-		echo "Binary garbage: $buf\n\n";
+	public function write()
+	{
+		if (!$this->websocket) {
+			return parent::write();
+		}
 
 		return TRUE;
 	}
@@ -131,36 +130,5 @@ class WebsocketHandler extends HTTPHandler
 		$this->websocket = TRUE;
 
 		return $response;
-	}
-
-	public function _read($buf, $buflen)
-	{
-		$this->rbuf .= $buf;
-		$this->rbuflen += $buflen;
-
-		if ($this->rbuflen >= 2) {
-			/* The first two bytes define flags, opcode, mask (bool), and initial length. */
-			list($flags, $len) = array_values(unpack("C2", $this->rbuf));
-			$fin = (bool)$flags & 0x01;
-			$opcode = $flags >> 4;
-			$mask = (bool)$len & 0x01;
-			$len = $len >> 1;
-			
-			if ($len == 126) {
-				if ($this->rbuflen < 4) {
-					return TRUE;
-				}
-				list($ignore, $len) = array_values(unpack("n2", $this->rbuf));
-			} elseif ($len == 127) {
-				if ($this->rbuflen < 10) {
-					return TRUE;
-				}
-				list($ignore, $len1, $len2) = array_values(unpack("nN2", $this->rbuf));
-				$len = $len2 + ($len1 << 32);
-			}
-
-		}
-
-		return TRUE;
 	}
 }
