@@ -15,10 +15,9 @@ spl_autoload_register(function($class_name) {
 	require $file;
 });
 
-use janderson\http\Handler as Handler;
-use janderson\http\Dispatcher;
-use janderson\http\StaticDispatcher;
-use janderson\http\JSONRPCDispatcher;
+use janderson\protocol\http\Dispatcher;
+use janderson\protocol\http\StaticDispatcher;
+use janderson\protocol\http\JSONRPCDispatcher;
 use janderson\socket\Socket;
 use janderson\socket\server\Server;
 use janderson\socket\server\ForkingServer;

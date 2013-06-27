@@ -42,6 +42,20 @@ class Server {
 	 */
 	protected $stop = FALSE;
 
+	/**
+	 * The name of the handler class, to be instantiated for each connection.
+	 *
+	 * @var string
+	 */
+	protected $handler;
+
+	/**
+	 * Any parameters to be passed on to the handler.
+	 *
+	 * @var mixed[]
+	 */
+	protected $params;
+
 
 	protected function log($message) {
 		error_log($message);
@@ -50,9 +64,10 @@ class Server {
 	/**
 	 * @throws SocketException An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
 	 */
-	public function __construct(Socket $socket, $handler) {
+	public function __construct(Socket $socket, $handler, $params = NULL) {
 		$this->socket = $socket;
 		$this->handler = $handler;
+		$this->params = $params;
 	}
 
 	public function run() {
@@ -116,7 +131,7 @@ class Server {
 		$readers = $listen ? array($this->socket) : array();
 		$writers = array();
 		foreach ($this->children as $child) {
-			list($socket, $buffer, $handler) = $child;
+			list($socket, $buffer, $buflen, $handler) = $child;
 			$readers[] = $socket;
 			if (!empty($buffer)) {
 				$writers[] = $socket;
@@ -148,10 +163,12 @@ class Server {
 		$handler = $this->handler;
 		$resourceId = $socket->getResourceId();
 		$buffer = "";
+		$buflen = NULL;
 		$this->children[$resourceId] = array(
 			$socket,
 			&$buffer,
-			new $handler($buffer)
+			&$buflen,
+			new $handler($buffer, $buflen, $this->params)
 		);
 		//echo "Accept returning TRUE!\n";
 		return TRUE;
@@ -185,9 +202,9 @@ class Server {
 			return FALSE;
 		}
 
-		list($socket, $buffer, $handler) = $this->children[$resourceId];
+		list(/*not needed*/, /*not needed*/, /*not needed*/, $handler) = $this->children[$resourceId];
 
-		return $handler->read($buf, $len);
+		return $handler->read($buffer, $length);
 	}
 
 	protected function send(Socket &$socket) {
@@ -197,9 +214,13 @@ class Server {
 			return FALSE;
 		}
 
-		list($socket, $buffer, $handler) = $this->children[$resourceId];
+		list($socket, $buffer, $buflen, $handler) = $this->children[$resourceId];
 
-		$len = strlen($buffer); // maybe mb_strlen($buffer, 'pass'); ?
+		if (isset($buflen)) {
+			$len = &$buflen;
+		} else {
+			$len = strlen($buffer); // maybe mb_strlen($buffer, 'pass'); ?
+		}
 
 		/* Clear the write buffer and return now if there's nothing more to write. */
 		if ($len) {
@@ -208,6 +229,7 @@ class Server {
 				return FALSE;
 			}
 			$buffer = substr($buffer, $sent); // maybe mb_substr($buffer, $sent, $len, 'pass'); ?
+			$len -= $sent;
 			$this->children[$resourceId][1] = $buffer;
 
 			if (empty($buffer)) {
@@ -226,7 +248,7 @@ class Server {
 			return;
 		}
 
-		list($socket, $buffer, $handler) = $this->children[$resourceId];
+		list($socket, $buffer, $buflen, $handler) = $this->children[$resourceId];
 		$socket->close();
 		$handler->close();
 		unset($this->children[$resourceId]);
