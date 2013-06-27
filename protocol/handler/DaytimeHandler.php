@@ -17,8 +17,9 @@ class DaytimeHandler implements ProtocolHandler
 	 *
 	 * @param string &$buffer A reference to the write buffer.
 	 * @param int &$bufferlen A reference to the write buffer length (ignored - let the server handle that)
+	 * @param mixed[] $params Ignored.
 	 */
-	public function __construct(&$buffer, &$bufferlen)
+	public function __construct(&$buffer, &$bufferlen, $params)
 	{
 		$buffer = date(self::DATE_FORMAT) . "\r\n"; /* E.g. Tuesday, February 22, 1982 17:37:43-PST */
 	}

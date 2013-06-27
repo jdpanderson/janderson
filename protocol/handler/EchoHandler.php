@@ -24,8 +24,9 @@ class EchoHandler implements ProtocolHandler
 	 *
 	 * @param string &$buffer A reference to the write buffer.
 	 * @param int &$bufferlen A reference to the write buffer length (ignored - server can handle it)
+	 * @param mixed[] $params Ignored.
 	 */
-	public function __construct(&$buffer, &$bufferlen)
+	public function __construct(&$buffer, &$bufferlen, $params)
 	{
 		$this->buffer = &$buffer;
 		$this->bufferlen = &$bufferlen;

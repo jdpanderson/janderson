@@ -41,7 +41,10 @@ class HTTPHandler implements ProtocolHandler
 	 */
 	protected $rbuflen;
 
-	public function __construct(&$buffer, &$buflen)
+	/**
+	 * @param mixed[] $params Parameters for this handler.
+	 */
+	public function __construct(&$buffer, &$buflen, $params)
 	{
 		$this->buffer = &$buffer;
 		$this->buflen = &$buflen;

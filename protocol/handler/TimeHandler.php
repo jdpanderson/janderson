@@ -19,8 +19,9 @@ class TimeHandler implements ProtocolHandler
 	 *
 	 * @param string &$buffer A reference to the write buffer.
 	 * @param int &$buflen A reference to the write buffer length. (Ignored. Server handles it.)
+	 * @param mixed[] $params Ignored.
 	 */
-	public function __construct(&$buffer, &$buflen)
+	public function __construct(&$buffer, &$buflen, $params)
 	{
 		$buffer = pack("N", self::JAN_1_1970 + time()); /* Seconds since January 1 1900. */
 	}
