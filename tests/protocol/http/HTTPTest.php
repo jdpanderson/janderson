@@ -2,7 +2,7 @@
 
 namespace janderson\tests\http;
 
-use janderson\http\HTTP;
+use janderson\protocol\http\HTTP;
 
 class HTTPTest extends \PHPUnit_Framework_TestCase
 {

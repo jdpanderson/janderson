@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\tests\socket\server\handler;
+namespace janderson\tests\protocol\handler;
 
-use janderson\socket\server\handler\TimeHandler;
+use janderson\protocol\handler\TimeHandler;
 
 class TimeHandlerTest extends \PHPUnit_Framework_TestCase
 {

@@ -2,16 +2,13 @@
 /**
  * This file defines the Frame class
  */
-namespace janderson\socket\server\handler;
+namespace janderson\protocol\handler;
 
-use janderson\socket\server\Handler;
-use janderson\socket\server\handler\HTTPHandler;
+use janderson\protocol\http\HTTP;
+use janderson\protocol\http\Request;
+use janderson\protocol\http\Response;
 
-use janderson\http\HTTP;
-use janderson\http\Request;
-use janderson\http\Response;
-
-use janderson\websocket\Frame;
+use janderson\protocol\websocket\Frame;
 
 /**
  * ASCII-art representation of a websocket frame, from RFC 6455

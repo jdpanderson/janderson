@@ -1,6 +1,6 @@
 <?php
 
-namespace janderson\http;
+namespace janderson\protocol\http;
 
 //use janderson\http\HTTP;
 

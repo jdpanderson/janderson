@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\tests\socket\server\handler;
+namespace janderson\tests\protocol\handler;
 
-use janderson\socket\server\handler\HTTPHandler;
+use janderson\protocol\handler\HTTPHandler;
 
 class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 {
@@ -42,7 +42,7 @@ class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 
 	/**
 	 * @dataProvider invalidRequestProvider
-	 * @expectedException janderson\http\HTTPException
+	 * @expectedException janderson\protocol\http\HTTPException
 	 */
 	public function testInvalidRequests($request)
 	{

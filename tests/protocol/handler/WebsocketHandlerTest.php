@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\tests\socket\server\handler;
+namespace janderson\tests\protocol\handler;
 
-use janderson\socket\server\handler\WebsocketHandler;
+use janderson\protocol\handler\WebsocketHandler;
 
 class WebsocketHandlerTest extends \PHPUnit_Framework_TestCase
 {

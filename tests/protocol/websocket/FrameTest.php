@@ -2,7 +2,7 @@
 
 namespace janderson\tests\websocket;
 
-use janderson\websocket\Frame;
+use janderson\protocol\websocket\Frame;
 
 class FrameTest extends \PHPUnit_Framework_TestCase
 {

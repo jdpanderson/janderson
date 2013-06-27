@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\tests\socket\server\handler;
+namespace janderson\tests\protocol\handler;
 
-use janderson\socket\server\handler\DaytimeHandler;
+use janderson\protocol\handler\DaytimeHandler;
 
 class DaytimeHandlerTest extends \PHPUnit_Framework_TestCase
 {

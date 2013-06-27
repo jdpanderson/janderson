@@ -1,8 +1,8 @@
 <?php
 
-namespace janderson\tests\socket\server\handler;
+namespace janderson\tests\protocol\handler;
 
-use janderson\socket\server\handler\EchoHandler;
+use janderson\protocol\handler\EchoHandler;
 
 class EchoHandlerTest extends \PHPUnit_Framework_TestCase
 {

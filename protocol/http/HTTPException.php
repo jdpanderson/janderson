@@ -1,5 +1,5 @@
 <?php
 
-namespace janderson\http;
+namespace janderson\protocol\http;
 
 class HTTPException extends \Exception {}

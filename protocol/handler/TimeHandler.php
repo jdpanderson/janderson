@@ -1,25 +1,28 @@
 <?php
 
-namespace janderson\socket\server\handler;
-
-use janderson\socket\server\ProtocolHandler;
+namespace janderson\protocol\handler;
 
 /**
  * Example handler, daytime service.
  *
- * This should be compatible with RFC867, but this has not been tested.
+ * This should be compatible with RFC867 if run on TCP port 37, but this has not been tested.
  */
-class DaytimeHandler implements ProtocolHandler
+class TimeHandler implements ProtocolHandler
 {
-	const DATE_FORMAT = "l, F j, Y G:i:s-T";
+	/**
+	 * Seconds between Jan 1 1900 and Jan 1 1970
+	 */
+	const JAN_1_1970 = 2208988800;
+
 	/**
 	 * Write the date as soon as possible.
 	 *
 	 * @param string &$buffer A reference to the write buffer.
+	 * @param int &$buflen A reference to the write buffer length. (Ignored. Server handles it.)
 	 */
-	public function __construct(&$buffer)
+	public function __construct(&$buffer, &$buflen)
 	{
-		$buffer = date(self::DATE_FORMAT) . "\r\n"; /* E.g. Tuesday, February 22, 1982 17:37:43-PST */
+		$buffer = pack("N", self::JAN_1_1970 + time()); /* Seconds since January 1 1900. */
 	}
 
 	/**

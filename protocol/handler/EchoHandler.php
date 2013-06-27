@@ -1,8 +1,6 @@
 <?php
 
-namespace janderson\socket\server\handler;
-
-use janderson\socket\server\ProtocolHandler;
+namespace janderson\protocol\handler;
 
 /**
  * Example handler, echoes any input until the client disconnects.
@@ -17,13 +15,20 @@ class EchoHandler implements ProtocolHandler
 	protected $buffer;
 
 	/**
+	 * A local reference to the write buffer length.
+	 */
+	protected $bufferlen;
+
+	/**
 	 * Prepare to handle the echo protocol!
 	 *
 	 * @param string &$buffer A reference to the write buffer.
+	 * @param int &$bufferlen A reference to the write buffer length (ignored - server can handle it)
 	 */
-	public function __construct(&$buffer)
+	public function __construct(&$buffer, &$bufferlen)
 	{
 		$this->buffer = &$buffer;
+		$this->bufferlen = &$bufferlen;
 	}
 
 	/**
@@ -36,6 +41,7 @@ class EchoHandler implements ProtocolHandler
 	public function read($buffer, $length)
 	{
 		$this->buffer .= $buffer;
+		$this->bufferlen += $length;
 		return TRUE;
 	}
 

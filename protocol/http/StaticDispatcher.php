@@ -2,7 +2,7 @@
 /**
  * This file defines the StaticDispatcher interface
  */
-namespace janderson\http;
+namespace janderson\protocol\http;
 
 use \janderson\socket\server\Dispatchable;
 

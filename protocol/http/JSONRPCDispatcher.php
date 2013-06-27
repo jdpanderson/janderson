@@ -2,7 +2,7 @@
 /**
  * This file defines the JSONRPCDispatcher interface
  */
-namespace janderson\http;
+namespace janderson\protocol\http;
 
 use \janderson\socket\server\Dispatchable;
 

@@ -2,18 +2,14 @@
 /**
  * This file defines the HTTPHandler interface
  */
-namespace janderson\socket\server\handler;
+namespace janderson\protocol\handler;
 
-use janderson\socket\server\ProtocolHandler;
-use janderson\socket\Server;
-use janderson\Buffer;
-use janderson\http\Request;
-use janderson\http\Response;
-use janderson\http\HTTPException;
-use janderson\socket\Socket;
+use janderson\protocol\http\Request;
+use janderson\protocol\http\Response;
+use janderson\protocol\http\HTTPException;
 
 /**
- * Implements an HTTPHandler Socket class.
+ * Implements an HTTPHandler class.
  */
 class HTTPHandler implements ProtocolHandler
 {
@@ -23,6 +19,13 @@ class HTTPHandler implements ProtocolHandler
 	 * @var string
 	 */
 	protected $buffer;
+
+	/**
+	 * Write buffer length
+	 *
+	 * @var int
+	 */
+	protected $buflen;
 
 	/**
 	 * Read buffer (data received so far)
@@ -38,9 +41,10 @@ class HTTPHandler implements ProtocolHandler
 	 */
 	protected $rbuflen;
 
-	public function __construct(&$buffer)
+	public function __construct(&$buffer, &$buflen)
 	{
 		$this->buffer = &$buffer;
+		$this->buflen = &$buflen;
 	}
 
 	protected $request;

@@ -2,7 +2,7 @@
 /**
  * This file defines the Frame class
  */
-namespace janderson\websocket;
+namespace janderson\protocol\websocket;
 
 /**
  * ASCII-art representation of a websocket frame, from RFC 6455
