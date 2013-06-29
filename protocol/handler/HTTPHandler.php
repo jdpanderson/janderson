@@ -42,30 +42,70 @@ class HTTPHandler implements ProtocolHandler
 	protected $rbuflen;
 
 	/**
+	 * @var janderson\protocol\http\Request
+	 */
+	protected $request;
+
+	/** 
+	 * @var janderson\protocol\http\Response
+	 */
+	protected $response;
+
+	/**
+	 * The class that will dispatch requests.
+	 *
+	 * @var Dispatcher
+	 */
+	protected $dispatcher;
+
+	/**
+	 *
+	 * @param string $buffer The write buffer to which responses should be written.
+	 * @param int $buflen The length of the write buffer.
 	 * @param mixed[] $params Parameters for this handler.
 	 */
 	public function __construct(&$buffer, &$buflen, $params)
 	{
 		$this->buffer = &$buffer;
 		$this->buflen = &$buflen;
+
+		if (isset($params['dispatcher'])) {
+			$this->dispatcher = $params['dispatcher'];
+		}
 	}
 
-	protected $request;
-	protected $response;
-
+	/**
+	 * Get a reference to the request object.
+	 *
+	 * @return Request
+	 */
 	public function &getRequest() {
 		return $this->request;
 	}
 
+	/**
+	 * Get a reference to the currently processing response object.
+	 *
+	 * @return Response
+	 */
 	public function &getResponse() {
 		return $this->response;
 	}
 
 	public function write() {
-		$keepAlive = $this->request->keepAlive();
-		$this->request = $this->response =  NULL;
+		if (empty($this->buffer)) {
+			$keepAlive = $this->request->keepAlive();
+			$this->request = $this->response =  NULL;
 
-		return $keepAlive;
+			/* If we've emptied the write buffer but there's more data in the read buffer, this could be another request. Try to process that. */
+			if ($keepAlive && !empty($this->rbuffer)) {
+				$this->read("", 0);
+			}
+
+			return $keepAlive;
+		} else {
+			return TRUE;
+		}
 	}
 
 	/**
@@ -103,10 +143,8 @@ class HTTPHandler implements ProtocolHandler
 	 */
 	protected function dispatch(&$request)
 	{
-		
 		$response = new Response($request);
-		$response->setContent("test");
-		usleep(10000); // Simulate a request that takes 10ms to process.
+		$this->dispatcher->dispatch($request, $response);
 		return $response;
 	}
 

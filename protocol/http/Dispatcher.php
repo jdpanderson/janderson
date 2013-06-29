@@ -4,7 +4,6 @@
  */
 namespace janderson\protocol\http;
 
-use \janderson\socket\server\Dispatchable;
 use \Closure;
 
 /**
@@ -33,25 +32,21 @@ class Dispatcher implements Dispatchable {
 	 * @param Request $request
 	 * @return Response
 	 */
-	public function dispatch($request) {
+	public function dispatch(&$request, &$response) {
 		/* A Trie would do this nicely, and would probably be faster. */
 		foreach ($this->prefixes as $prefix => $dest) {
 			if (strpos($request->getURI(), $prefix) === 0) {
 				try {
 					if ($dest instanceof Dispatchable) {
-						$response = $dest->dispatch($request);
+						$dest->dispatch($request, $response);
 					} elseif ($dest instanceof Closure || (is_object($dest) && method_exists($dest, '__invoke'))) {
-						$response = new Response($request);
 						$dest($request, $response);
 					} elseif (is_callable($dest)) {
-						$response = new Response($request);
 						call_user_func($dest, $request, $response);
 					}
-				} catch (Exception $e) {
-					$response = new Response($request);
+				} catch (HTTPException $e) {
 					$response->setException($e);
 				} catch (\Exception $e) {
-					$response = new Response($request);
 					$response->setStatusCode(HTTP::STATUS_INTERNAL_SERVER_ERROR);
 					$response->setContent("Internal Server Error");
 				}
