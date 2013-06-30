@@ -191,7 +191,7 @@ class Server {
 			$buffer .= $buf;
 			$length += $len;
 
-			/* Overrun the receive buffer. This should probably be handled differently. the*/
+			/* If we overrun the receive buffer, close the connection. */
 			if ($length > self::BUF_MAX_LEN) {
 				return FALSE;
 			}
