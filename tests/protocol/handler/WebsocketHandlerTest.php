@@ -32,8 +32,9 @@ class WebsocketHandlerTest extends \PHPUnit_Framework_TestCase
 
 		/* parse parses and also does basic validation. */
 		list($version, $code, $message, $headers, $body) = $this->parseHTTPResponse($buf);
-		$this->assertTrue($h->write()); /* 1.1 - keep alive */
 		$buf = "";
+		$this->assertTrue($h->write()); /* 1.1 - keep alive */
+		
 
 		$this->assertEquals(426, $code, "Expecting a version upgrade response code.");
 
@@ -41,8 +42,8 @@ class WebsocketHandlerTest extends \PHPUnit_Framework_TestCase
 		$this->assertTrue($h->read($request, strlen($request)));
 
 		list($version, $code, $message, $headers, $body) = $this->parseHTTPResponse($buf);
-		$this->assertTrue($h->write()); /* 1.1 - keep alive */
 		$buf = "";
+		$this->assertTrue($h->write()); /* 1.1 - keep alive */
 
 		$this->assertEquals(400, $code, "Expecting a bad response response if we're missing the key.");
 

@@ -144,7 +144,8 @@ class HTTPHandler implements ProtocolHandler
 	protected function dispatch(&$request)
 	{
 		$response = new Response($request);
-		$this->dispatcher->dispatch($request, $response);
+		//XXX FIXME: Implement this.
+		//$this->dispatcher->dispatch($request, $response);
 		return $response;
 	}
 

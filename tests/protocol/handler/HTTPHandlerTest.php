@@ -17,7 +17,8 @@ class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 		/* parse parses and also does basic validation. */
 		list($version, $code, $message, $headers, $body) = $this->parseHTTPResponse($buf);
 
-		$this->assertFalse($h->write(), "HTTP/1,0 does not support keepalives. False (close socket) expected.");
+		$buf = ""; /* Pretend we emptied the buffer. */
+		$this->assertFalse($h->write(), "HTTP/1.0 does not support keepalives. False (close socket) expected.");
 		$h->close();
 
 		/* After the request is done, both of these should become invalid. */
@@ -36,7 +37,8 @@ class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 		/* parse parses and also does basic validation. */
 		list($version, $code, $message, $headers, $body) = $this->parseHTTPResponse($buf);
 
-		$this->assertFalse($h->write(), "HTTP/1,0 does not support keepalives. False (close socket) expected.");
+		$buf = ""; /* Pretend we emptied the buffer. */
+		$this->assertFalse($h->write(), "HTTP/1.0 does not support keepalives. False (close socket) expected.");
 		$h->close();
 	}
 
