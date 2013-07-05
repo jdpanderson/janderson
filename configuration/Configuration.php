@@ -35,18 +35,18 @@ namespace janderson\configuration;
  * $conf->get('foo.bar'); // returns "baz"
  * </code>
  */
-interface Configuration extends ArrayAccess
+interface Configuration extends \ArrayAccess
 {
 	/**
-	 * Load configuration.
+	 * Load configuration into the current object.
 	 *
 	 * @param string $uri Get configuration from some kind of uniform resource identifier or path.
 	 * @return Configuration A loaded set of configuration directives, or false on failure.
 	 */
-	public static function load($uri = NULL);
+	public function load($uri = NULL);
 
 	/**
-	 * Save configuration
+	 * Save configuration in this object.
 	 *
 	 * @param string $uri A uniform resource identifier or path to which the configurtion should be saved.
 	 * @return bool True if saving was successful, or false otherwise.
@@ -56,10 +56,10 @@ interface Configuration extends ArrayAccess
 	/**
 	 * Get a configuration directive.
 	 *
-	 * @param string $directive The configuration directive or parameter.
+	 * @param string $directive The configuration directive or parameter. A configuration type may opt to dump its entire structure if the directive is not set.
 	 * @param mixed $default The value to be used if the given configuration directive is not available.
 	 */
-	public function get($directive, $default = NULL);
+	public function get($directive = NULL, $default = NULL);
 
 	/**
 	 * Set a configuration directive.
