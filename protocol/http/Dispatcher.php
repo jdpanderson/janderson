@@ -9,7 +9,7 @@ use \Closure;
 /**
  * Dispatches an HTTP request to a prefix-specific destination, usually a callback or another dispatcher.
  *
- * The destination must be either net\socket\server\Dispatchable or a callback.
+ * The destination must be either Dispatchable or a callback.
  *
  * The callback must accept parameters ($request, &$response)
  */

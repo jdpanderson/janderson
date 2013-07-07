@@ -2,9 +2,10 @@
 
 namespace janderson\socket\server;
 
-use \janderson\socket\SocketException;
-use \janderson\socket\Socket;
-use \janderson\Buffer;
+use janderson\socket\SocketException;
+use janderson\socket\Socket;
+use janderson\Buffer;
+use janderson\protocol\handler\ProtocolHandler;
 
 class Server {
 	/**
@@ -19,7 +20,7 @@ class Server {
 	 */
 	const RCV_MAX_LEN = 4096;
 
-	const SELECT_TIMEOUT = 0.1;
+	const SELECT_TIMEOUT = 1;
 
 	/**
 	 * The listen socket.
@@ -43,31 +44,36 @@ class Server {
 	protected $stop = FALSE;
 
 	/**
-	 * The name of the handler class, to be instantiated for each connection.
+	 * A callable which serves as a handler factory; Creates or returns protocol handlers.
 	 *
-	 * @var string
+	 * The callable will be called with two arguments, the same as the ProtocolHandler interface:
+	 * - A reference to the write buffer
+	 * - A reference to the write buffer length
+	 *
+	 * If a ProtocolHandler isn't returned by the callable, the socket will be closed.
+	 *
+	 * @var callable
 	 */
 	protected $handler;
-
-	/**
-	 * Any parameters to be passed on to the handler.
-	 *
-	 * @var mixed[]
-	 */
-	protected $params;
-
 
 	protected function log($message) {
 		error_log($message);
 	}
 
 	/**
+	 * Create a generalized socket server.
+	 *
+	 * @param Socket $socket
+	 * @param Callable $handlerFactory A callable which will be passed the write buffer and is expected to return a ProtocolHandler
+	 *
 	 * @throws SocketException An exception will be thrown by the underlying socket implementation if a listen socket cannot be created.
 	 */
-	public function __construct(Socket $socket, $handler, $params = NULL) {
+	public function __construct(Socket $socket, $handlerFactory) {
+		if (!is_callable($handlerFactory)) {
+			throw new SocketException("Handler factory is not callable.");
+		}
 		$this->socket = $socket;
-		$this->handler = $handler;
-		$this->params = $params;
+		$this->handler = $handlerFactory;
 	}
 
 	public function run() {
@@ -160,15 +166,28 @@ class Server {
 		}
 
 		$socket->setBlocking(FALSE);
-		$handler = $this->handler;
-		$resourceId = $socket->getResourceId();
 		$buffer = "";
 		$buflen = NULL;
+
+		/* I consider call_user_func* to be "ugly", so for 5.4+, use true callable syntax. */
+		if (PHP_VERSION_ID >= 50300) {
+			$handlerFn = $this->handler;
+			$handler = $handlerFn($buffer, $buflen, array('socket' => $socket));
+		} else {
+			$handler = call_user_func_array($this->handler, array(&$buffer, &$buflen, array('socket' => $socket)));
+		}
+
+		if (!($handler instanceof ProtocolHandler)) {
+			// XXX FIXME: log incorrect handler.
+			echo "Invalid handler returned. Socket will not be accepted.\n";
+			return FALSE;
+		}
+		$resourceId = $socket->getResourceId();
 		$this->children[$resourceId] = array(
 			$socket,
 			&$buffer,
 			&$buflen,
-			new $handler($buffer, $buflen, $this->params)
+			$handler
 		);
 		//echo "Accept returning TRUE!\n";
 		return TRUE;

@@ -4,7 +4,7 @@
  */
 namespace janderson\protocol\http;
 
-use \janderson\socket\server\Dispatchable;
+use janderson\protocol\http\Dispatchable;
 
 /**
  * JSONRPCDispatcher
@@ -38,9 +38,7 @@ class JSONRPCDispatcher implements Dispatchable {
 		}
 	}
 
-	public function dispatch($request) {
-		$response = new Response($request);
-
+	public function dispatch(&$request, &$response) {
 		if ($request->getMethod() != HTTP::METHOD_POST || strtolower($request->getHeader('Content-Type')) != 'application/json') {
 			$response->setStatusCode(HTTP::STATUS_BAD_REQUEST);
 			$response->setContent("Bad Request");

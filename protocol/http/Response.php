@@ -70,9 +70,8 @@ class Response {
 			$this->message
 		));
 
-		if ($contentLength = strlen($this->content)) {
-			$this->headers['Content-Length'] = $contentLength;
-		}
+		$contentLength = strlen($this->content);
+		$this->headers['Content-Length'] = $contentLength;
 
 		foreach ($this->headers as $header => $value) {
 			if (is_array($value)) {

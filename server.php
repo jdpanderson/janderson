@@ -111,10 +111,16 @@ $dispatcher = new Dispatcher(array(
 	'/'         => new StaticDispatcher('/home/janderson/public_html/blog/')
 ));
 
+$handlerFactory = function(&$buf, &$buflen, $params) use ($handler, $dispatcher) {
+	$handlerInst = new $handler($buf, $buflen, $params);
+	$handlerInst->setDispatcher($dispatcher);
+	return $handlerInst;
+};
+
 if ($processes === 1) {
-	$svr = new Server($socket, $handler);
+	$svr = new Server($socket, $handlerFactory);
 	$svr->run();
 } else {
-	$svr = new ForkingServer($socket, $handler);
+	$svr = new ForkingServer($socket, $handlerFactory);
 	$svr->run($processes);
 }

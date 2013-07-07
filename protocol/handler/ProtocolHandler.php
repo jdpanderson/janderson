@@ -26,7 +26,7 @@ interface ProtocolHandler {
 	 *
 	 * @param string &$writebuf The write buffer shared with the server. Simply writing data to this buffer will cause the server to try to write it to the connection.
 	 * @param int &$writebuflen The write buffer length. This should be updated with the updated length of the write buffer if known. It can also be ignored and the server will determine the buffer length on its own.
-	 * @param mixed[] $params Any parameters to be passed to the handler, e.g. configuration.
+	 * @param mixed[] $params Any parameters to be passed to the handler, e.g. configuration or metadata.
 	 *
 	 * The write buffer and length will be shared between the server and the protocol handler.
 	 */

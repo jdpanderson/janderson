@@ -4,7 +4,7 @@
  */
 namespace janderson\protocol\http;
 
-use \janderson\socket\server\Dispatchable;
+use janderson\protocol\http\Dispatchable;
 
 /**
  * StaticDispatcher is a dispatcher for static content, i.e. serves files from a directory tree in the filesystem.
@@ -36,9 +36,7 @@ class StaticDispatcher implements Dispatchable {
 		}
 	}
 
-	public function dispatch($request) {
-		$response = new Response($request);
-
+	public function dispatch(&$request, &$response) {
 		$file = parse_url($request->getURI(), PHP_URL_PATH);
 
 		/* Static file handler */
