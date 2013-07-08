@@ -17,6 +17,7 @@ spl_autoload_register(function($class_name) {
 
 use janderson\protocol\http\Dispatcher;
 use janderson\protocol\http\StaticDispatcher;
+use janderson\protocol\http\PHPDispatcher;
 use janderson\protocol\http\JSONRPCDispatcher;
 use janderson\socket\Socket;
 use janderson\socket\server\Server;
@@ -108,7 +109,7 @@ class BlogService {
 
 $dispatcher = new Dispatcher(array(
 	'/service/' => new JSONRPCDispatcher(array(new BlogService())),
-	'/'         => new StaticDispatcher('/home/janderson/public_html/blog/')
+	'/'         => new PHPDispatcher('/home/janderson/public_html/blog/')
 ));
 
 $handlerFactory = function(&$buf, &$buflen, $params) use ($handler, $dispatcher) {

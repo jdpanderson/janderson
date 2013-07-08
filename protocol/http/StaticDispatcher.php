@@ -17,6 +17,11 @@ class StaticDispatcher implements Dispatchable {
 		'css'  => 'text/css',
 	);
 
+	public function mapContentType($extension, $type)
+	{
+		$this->contentTypeMap[$extension] = $type;
+	}
+
 	/**
 	 * The path to the file root. Essentially the document root.
 	 *
@@ -67,8 +72,12 @@ class StaticDispatcher implements Dispatchable {
 			}
 		}
 
-		$response->setContent(file_get_contents($file));
+		$response->setContent($this->getContent($file));
 
 		return $response;
+	}
+
+	protected function getContent($file) {
+		return file_get_contents($file);
 	}
 }

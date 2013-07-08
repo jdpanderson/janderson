@@ -17,27 +17,6 @@ use janderson\ipc\MessageQueue;
  */
 class ForkingServer extends Server {
 	/**
-	 * The following pieces of shared data (IPC) are needed:
-	 *  - Signal from parent to child to stop/exit.
-	 *  - Signal from child to parent to notify status.
-	 *
-	 * To keep children from all trying to accept a single incoming connection, children must communicate somehow...
-	 *  - Connection # so that only child attempts to accepts the new connection, plus lock.
-	 *
-	 * Parent communication to children can be simple: false to stop.
-	 * Child communication requires a simple protocol:
-	 *  - Key is an array.
-	 *  - Write access to data requires a lock (lock before write, unlock after)
-	 *  - Child appends its ID, timestamp, and # of active sockets as an array of ints.
-	 *  - Parent will pull child data off like a stack.
-	 *
-	 * APC does this trivially, but this could be replaced by other IPC mechanisms.
-	 */
-	const KEY_STATUS_PARENT = "ForkingServer::Parent";
-	const KEY_STATUS_CHILD = "ForkingServer::Children";
-	const KEY_SERIAL = "ForkingServer::ConnNo";
-
-	/**
 	 * The lock holder gets to select on the listen socket.
 	 *
 	 * @var janderson\lock\Lock;
@@ -89,12 +68,15 @@ class ForkingServer extends Server {
 	public function __destruct() {
 		/* If we're the parent, do some cleanup. */
 		if (!$this->child_id) {
-			$this->store->delete(self::KEY_SERIAL);
-
 			foreach (array($this->store, $this->lock, $this->queue) as $destroyable) {
 				if ($destroyable instanceof Destroyable) {
 					$destroyable->destroy();
 				}
+			}
+		} else {
+			/* If we're the child destructing, try letting the parent know we're gone. */
+			if ($this->queue) {
+				$this->queue->send(array($this->child_id, FALSE, FALSE));
 			}
 		}
 	}
@@ -112,6 +94,11 @@ class ForkingServer extends Server {
 	 * @param bool $checkTs If false, set the status without bothering to check if we've set it recently.
 	 */
 	protected function setChildStatus($checkTs = TRUE) {
+		if (!$this->child_id) {
+			echo "Warning: non-child tried to set child status.\n";
+			return;
+		}
+
 		$time = time();
 
 		if ($checkTs && ($time - $this->statusTs) < 5) {
@@ -135,12 +122,21 @@ class ForkingServer extends Server {
 	protected function getChildStatus() {
 		$status = array();
 		while ($s = $this->queue->receive()) {
-			$status[] = $s;
+			list($child_id, $timestamp, $count) = $s;
+
+			if ($timestamp === FALSE) {
+				echo "Detected destructing process $child_id\n";
+				unset($this->processes[$child_id], $this->processTimestamps[$child_id]);
+			} else {
+				$this->processTimestamps[$child_id] = $timestamp;
+			}
 		}
-		return $status;
+		return $this->processTimestamps;
 	}
 
 	protected function select($listen = TRUE) {
+		$this->setChildStatus();
+
 		$listen = $listen ? $this->lock->trylock() : FALSE;
 
 		$return = parent::select($listen);
@@ -168,9 +164,6 @@ class ForkingServer extends Server {
 		 * Start managing processes!
 		 */
 		while (TRUE) {
-			//echo "Got status from children: " . json_encode($this->getChildStatus()) . "\n";
-			//$this->setChildStatus();
-
 			if (count($this->processes) < $processes) {
 				$child_id++;
 
@@ -184,6 +177,8 @@ class ForkingServer extends Server {
 						unset($this->processes); /* Not the managing parent anymore. */
 						//$this->log("Child $this->child_id running.");
 						echo "Child $this->child_id running.";
+						$queue = $this->queue;
+						register_shutdown_function(function() use ($child_id, $queue) { echo "$child_id shutdown\n"; $queue->send(array($child_id, FALSE, FALSE)); });
 						parent::run();
 						exit(0);
 
@@ -193,15 +188,15 @@ class ForkingServer extends Server {
 				}
 			} else {
 				/* Wait a few ms, and do it all over again. XXX fix value */
+				$time = time();
+				foreach ($this->getChildStatus() as $child_id => $timestamp) {
+					if (($time - $timestamp) > 10) {
+						echo "Child $child_id timed out.\n";
+						unset($this->processes[$child_id], $this->processTimestamps[$child_id]);
+					}
+				}
 				usleep(1000000);
 			}
-		}
-
-		if ($this->child_id === NULL) {
-			echo "Parent going to sleep as a proof of concept.\n";
-			sleep(1000);
-		} else {
-			echo "done...\n";
 		}
 	}
 
