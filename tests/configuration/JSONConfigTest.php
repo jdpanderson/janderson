@@ -2,13 +2,13 @@
 
 namespace janderson\tests\configuration;
 
-use janderson\configuration\IniFile;
+use janderson\configuration\JSONConfig;
 
-class IniFileTest extends \PHPUnit_Framework_TestCase
+class JSONConfigTest extends \PHPUnit_Framework_TestCase
 {
 	public function testLoadSave()
 	{
-		$cfg = new IniFile();
+		$cfg = new JSONConfig();
 		$cfg['foo.bar'] = 123;
 		$cfg['foo.baz'] = "teststr";
 		$cfg['root'] = "r00t";
@@ -17,7 +17,7 @@ class IniFileTest extends \PHPUnit_Framework_TestCase
 
 		$cfg->save($tmp);
 
-		$cpy = new IniFile();
+		$cpy = new JSONConfig();
 		$cpy->load($tmp);
 
 		$this->assertEquals($cfg->flatten(), $cpy->flatten());
