@@ -2,6 +2,7 @@
 
 namespace janderson\socket\server;
 
+use janderson\log\NullLogger;
 use janderson\socket\SocketException;
 use janderson\socket\Socket;
 use janderson\Buffer;
@@ -20,7 +21,14 @@ class Server {
 	 */
 	const RCV_MAX_LEN = 4096;
 
-	const SELECT_TIMEOUT = 1;
+	/**
+	 * Timeout for the select call.
+	 *
+	 * Lower means better response at the cost of higher overhead. A value between 0.05 and 1 is probably best.
+	 *
+	 * @var float
+	 */
+	const SELECT_TIMEOUT = 0.1;
 
 	/**
 	 * The listen socket.
@@ -44,6 +52,13 @@ class Server {
 	protected $stop = FALSE;
 
 	/**
+	 * A logger instance
+	 *
+	 * @var Psr\Log\LoggerInterface
+	 */
+	protected $logger;
+
+	/**
 	 * A callable which serves as a handler factory; Creates or returns protocol handlers.
 	 *
 	 * The callable will be called with two arguments, the same as the ProtocolHandler interface:
@@ -55,10 +70,6 @@ class Server {
 	 * @var callable
 	 */
 	protected $handler;
-
-	protected function log($message) {
-		error_log($message);
-	}
 
 	/**
 	 * Create a generalized socket server.
@@ -74,6 +85,8 @@ class Server {
 		}
 		$this->socket = $socket;
 		$this->handler = $handlerFactory;
+
+		$this->logger = new NullLogger();
 	}
 
 	public function run() {
@@ -88,13 +101,13 @@ class Server {
 			}
 
 			foreach ($err as $socket) {
-				//echo "Error in {$socket->getResourceId()}\n";
+				$this->logger->notice("select returned error in resource {resid}, possible abnormal socket termination. closing.", array('resid' => $socket->getResourceId()));
 				$this->error($socket);
 			}
 
 			foreach ($wready as $socket) {
 				if (!$this->send($socket)) {
-					//echo "Error in {$socket->getResourceId()} send\n";
+					$this->logger->info("send triggered socket {resid} close", array('resid' => $socket->getResourceId()));
 					$this->close($socket);
 				}
 			}
@@ -102,12 +115,13 @@ class Server {
 			foreach ($rready as $socket) {
 				if ($socket === $this->socket) {
 					if (!$this->accept()) {
-						//echo "Error in {$socket->getResourceId()} accept\n";
+						$this->logger->alert("accept triggered listen socket {resid} close. Server terminating.", array('resid' => $socket->getResourceId()));
 						$this->error($socket);
+						break 2;
 					}
 				} else {
 					if (!$this->recv($socket)) {
-						//echo "Error in {$socket->getResourceId()} recv\n";
+						$this->logger->info("recv triggered socket {resid} close", array('resid' => $socket->getResourceId()));
 						$this->close($socket);
 					}
 				}
@@ -123,7 +137,6 @@ class Server {
 		if ($socket === $this->socket) {
 			$this->stop();
 		}
-		$this->log("Socket {$socket->getResourceId()} in error state. Closing.");
 		$this->close($socket);
 		return FALSE;
 	}
@@ -147,7 +160,7 @@ class Server {
 		$err = $readers;
 
 		if (empty($readers) && empty($writers)) {
-			//echo "No readers or writers\n";
+			$this->logger->debug("No readers or writers. Sleeping.");
 			usleep(self::SELECT_TIMEOUT * 1000000);
 			$num = 0;
 		} else {
@@ -161,7 +174,6 @@ class Server {
 		try {
 			$socket = $this->socket->accept();
 		} catch (\Exception $e) {
-			echo "Failed to accept remote socket: {$e->getMessage()}\n";
 			return FALSE;
 		}
 
@@ -178,9 +190,9 @@ class Server {
 		}
 
 		if (!($handler instanceof ProtocolHandler)) {
-			// XXX FIXME: log incorrect handler.
-			echo "Invalid handler returned. Socket will not be accepted.\n";
-			return FALSE;
+			$this->log->error("Invalid handler returned by handler factory. Socket will be closed.");
+			$this->close($socket);
+			return TRUE; /* Error is *not* with the socket, so log it and attempt to continue. */
 		}
 		$resourceId = $socket->getResourceId();
 		$this->children[$resourceId] = array(
@@ -189,7 +201,6 @@ class Server {
 			&$buflen,
 			$handler
 		);
-		//echo "Accept returning TRUE!\n";
 		return TRUE;
 	}
 
@@ -212,6 +223,7 @@ class Server {
 
 			/* If we overrun the receive buffer, close the connection. */
 			if ($length > self::BUF_MAX_LEN) {
+				$this->log->warning("Maximum buffer length per read cycle exceeded on socket {resid}", array('resid' => $resourceId));
 				return FALSE;
 			}
 		} while ($len == self::RCV_MAX_LEN);
@@ -259,6 +271,11 @@ class Server {
 		return TRUE;
 	}
 
+	/**
+	 * Close a socket, and destroy any internal resources associated with the socket.
+	 *
+	 * @param Socket &$socket
+	 */
 	protected function close(Socket &$socket) {
 		$resourceId = $socket->getResourceId();
 

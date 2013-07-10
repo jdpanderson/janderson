@@ -5,7 +5,7 @@ namespace janderson\configuration;
 /**
  * The nuts and bolts of a simple configuration class.
  */
-abstract class ArrayConfiguration implements Configuration
+abstract class ArrayConfig implements Configuration
 {
 	/**
 	 * All stored configuration will be in this array.

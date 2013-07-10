@@ -5,7 +5,7 @@ namespace janderson\configuration;
 /**
  * Configuration read from an ini file.
  */
-class IniConfig extends ArrayConfiguration
+class IniConfig extends ArrayConfig
 {
 	public function __construct($sections = TRUE)
 	{

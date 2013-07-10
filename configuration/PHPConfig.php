@@ -5,7 +5,7 @@ namespace janderson\configuration;
 /**
  * The nuts and bolts of a simple configuration class.
  */
-class PHPConfiguration extends ArrayConfiguration
+class PHPConfig extends ArrayConfig
 {
 	/**
 	 * Load configuration into the current object.

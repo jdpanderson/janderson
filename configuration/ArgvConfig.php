@@ -5,7 +5,7 @@ namespace janderson\configuration;
 /**
  * The nuts and bolts of a simple configuration class.
  */
-class Argv extends ArrayConfiguration
+class ArgvConfig extends ArrayConfig
 {
 	public function __construct($map = array())
 	{

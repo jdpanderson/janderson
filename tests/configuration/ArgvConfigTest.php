@@ -2,14 +2,14 @@
 
 namespace janderson\tests\configuration;
 
-use janderson\configuration\Argv;
+use janderson\configuration\ArgvConfig;
 
-class ArgvTest extends \PHPUnit_Framework_TestCase
+class ArgvConfigTest extends \PHPUnit_Framework_TestCase
 {
 	public function testLoad()
 	{
 		$GLOBALS['argv'] = array(NULL, "--opt-with-value", "foo", "nonopt", "--opt-without-value", "--opt-with-index-0", "bar", "--opt-with-equals=baz", "-h", "-o", "o-value", "-p", "p-value", "-qq-value", "--repeated-option", "0", "--repeated-option", "1", "non-option", "non-option-2", "--", "nonopt3", "--non-opt-4");
-		$cfg = new Argv(array("o" => "opt-short"));
+		$cfg = new ArgvConfig(array("o" => "opt-short"));
 		$cfg->load();
 
 		/* Make sure options were set correctly. */
@@ -33,7 +33,7 @@ class ArgvTest extends \PHPUnit_Framework_TestCase
 
 	public function testSave()
 	{
-		$cfg = new Argv();
+		$cfg = new ArgvConfig();
 		$this->assertFalse($cfg->save()); /* Saving not possible. Should fail. */
 	}
 }

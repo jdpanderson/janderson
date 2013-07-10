@@ -2,13 +2,13 @@
 
 namespace janderson\tests\configuration;
 
-use janderson\configuration\PHPConfiguration;
+use janderson\configuration\PHPConfig;
 
-class PHPConfigurationTest extends \PHPUnit_Framework_TestCase
+class PHPConfigTest extends \PHPUnit_Framework_TestCase
 {
 	public function testArrayAccess()
 	{
-		$cfg = new PHPConfiguration();
+		$cfg = new PHPConfig();
 		$this->assertFalse(isset($cfg['foo.bar']));
 		$cfg['foo.bar'] = "baz";
 		$this->assertTrue(isset($cfg['foo.bar']));
@@ -22,7 +22,7 @@ class PHPConfigurationTest extends \PHPUnit_Framework_TestCase
 
 	public function testFlatten()
 	{
-		$cfg = new PHPConfiguration();
+		$cfg = new PHPConfig();
 		$cfg['a.b.c'] = 'd';
 		$cfg['a.b.c.d'] = 'e';
 		$cfg['a.b.c.e'] = 'f';
@@ -35,7 +35,7 @@ class PHPConfigurationTest extends \PHPUnit_Framework_TestCase
 
 	public function testLoadSave()
 	{
-		$cfg = new PHPConfiguration();
+		$cfg = new PHPConfig();
 		$cfg['foo.bar'] = 123;
 		$cfg['foo.baz'] = "teststr";
 		$cfg['root'] = "r00t";
@@ -44,7 +44,7 @@ class PHPConfigurationTest extends \PHPUnit_Framework_TestCase
 
 		$cfg->save($tmp);
 
-		$cpy = new PHPConfiguration();
+		$cpy = new PHPConfig();
 		$cpy->load($tmp);
 
 		$this->assertEquals($cfg->flatten(), $cpy->flatten());

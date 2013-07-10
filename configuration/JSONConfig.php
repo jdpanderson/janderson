@@ -5,7 +5,7 @@ namespace janderson\configuration;
 /**
  * Configuration read from an ini file.
  */
-class JSONConfig extends ArrayConfiguration
+class JSONConfig extends ArrayConfig
 {
 	/**
 	 * Load configuration into the current object.
