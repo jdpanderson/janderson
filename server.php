@@ -22,10 +22,27 @@ use janderson\protocol\http\JSONRPCDispatcher;
 use janderson\socket\Socket;
 use janderson\socket\server\Server;
 use janderson\socket\server\ForkingServer;
+use janderson\configuration\ArgvConfig;
+use janderson\log\LogLevel;
+use janderson\log\ErrorLog;
 
-$options = getopt("a:hH:n:p:u:g:");
+/**
+ * Allow configuration to be specified as argv or a config file.
+ */
+$config = new ArgvConfig(array(
+	'h' => 'help',
+	'n' => 'server.processes',
+	'H' => 'server.handler',
+	'a' => 'server.address',
+	'p' => 'server.port',
+	'u' => 'server.euid',
+	'g' => 'server.guid',
+	'l' => 'logger.class',
+	'L' => 'logger.level',
+));
+$config->load();
 
-if (isset($options['h'])) {
+if ($config->get('help')) {
 	echo <<<HELP
 Usage: {$argv[0]} [options]
 
@@ -37,6 +54,21 @@ Options:
   -p <port>    Listen on port <port>. (Default is 80, or 8080 for non-root.)
   -u <euid>    Set the effective UID of the server processes. (root only.)
   -g <egid>    Set the effective GID of the server processes. (root only.)
+  -l <logger>  A PSR3-compatible logger class. Defaults to janderson\log\ErrorLog
+  -L <level>   The level of messages to log. Levels are RFC5424 log levels.
+
+Equivalent long form options:
+  h: --help 
+  H: --server-handler <handler>
+  n: --server-processes <num>
+  a: --server-address <addr>
+  p: --server-port <port>
+  u: --server-euid <euid>
+  g: --server-egid <egid>
+  l: --logger-class <logger>
+  L: --logger-level <level>
+
+Accepted log levels: emergency, alert, critical, error, warning, notice, info, and debug
 
 
 HELP;
@@ -44,9 +76,14 @@ HELP;
 }
 
 $root = (posix_geteuid() === 0);
-$port = isset($options['p']) ? $options['p'] : ($root ? 80 : 8080);
-$addr = isset($options['a']) ? $options['a'] : Socket::ADDR_ANY;
-$handler = isset($options['H']) ? $options['H'] : 'janderson\\socket\\server\\handler\\EchoHandler';
+$port = $config->get('server.port', $root ? 80 : 8080);
+$addr = $config->get('server.address', Socket::ADDR_ANY);
+$handler = $config->get('server.handler', 'janderson\\protocol\\handler\\HTTPHandler');
+
+$logger = $config->get('logger.class', 'janderson\\log\\ErrorLog');
+$level = $config->get('logger.level', LogLevel::WARNING);
+$logger = new $logger($level);
+$logger->debug("Logger created. Level set to {level}", array('level' => $level));
 
 /* Listen, then possibly switch the effective UID/GID */
 $socket = new Socket();
@@ -54,8 +91,8 @@ $socket->setBlocking(FALSE);
 $socket->listen(100, $addr, $port);
 
 if ($root) {
-	if (isset($options['u'])) {
-		$uid = $options['u'];
+	if ($config->get('server.euid')) {
+		$uid = $config->get('server.euid');
 		if (is_numeric($uid)) {
 			$uid = (int)$uid;
 		} else {
@@ -65,12 +102,12 @@ if ($root) {
 		}
 
 		if (is_int($uid)) {
-			error_log("Switching to euid $uid");
+			$logger->info("Switching to euid {euid}", array('euid' => $uid));
 			posix_seteuid($uid);
 		}
 	}
-	if (isset($options['g'])) {
-		$gid = $options['g'];
+	if ($config->get('server.egid')) {
+		$gid = $config->get('server.egid');
 		if (is_numeric($gid)) {
 			$gid = (int)$gid;
 		} else {
@@ -80,14 +117,14 @@ if ($root) {
 		}
 
 		if (is_int($gid)) {
-			error_log("Switching to egid $gid");
-			posix_setegid($uid);
+			$logger->info("Switching to egid {egid}", array('egid' => $gid));
+			posix_setegid($gid);
 		}
 	}
 }
 
-$processes = isset($options['n']) ? (int)$options['n'] : 1;
-$processes = min(max($processes, 1), 1024); /* Reasonable bounds. */
+$processes = $config->get('server.processes', 1);
+$processes = min(max($processes, 1), 1024); /* Clamp to reasonable bounds. */
 
 
 class BlogEntry {
@@ -120,8 +157,10 @@ $handlerFactory = function(&$buf, &$buflen, $params) use ($handler, $dispatcher)
 
 if ($processes === 1) {
 	$svr = new Server($socket, $handlerFactory);
+	$svr->setLogger($logger);
 	$svr->run();
 } else {
 	$svr = new ForkingServer($socket, $handlerFactory);
+	$svr->setLogger($logger);
 	$svr->run($processes);
 }

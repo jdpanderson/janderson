@@ -26,12 +26,34 @@ class ErrorLog implements LoggerInterface
 	);
 
 	/**
+	 * The minimum message level to log. Numeric, as represented in self::$levels.
+	 *
+	 * @var int
+	 */
+	protected $level;
+
+	/**
+	 * Construct a simple logger with a given minimum log level.
+	 *
+	 * @param string $level The minimum message level to be logged.
+	 */
+	public function __construct($level = LogLevel::DEBUG)
+	{
+		/* If the given level is invalid, log everything. */
+		if (!isset(self::$levels[$level])) {
+			$level = LogLevel::DEBUG;
+		}
+
+		$this->level = self::$levels[$level];
+	}
+
+	/**
 	 * System is unusable.
 	 *
 	 * @param string $message
 	 * @param array $context
 	 */
-	public function emergency($message, array $context = array()) { $this->log($level, $message); }
+	public function emergency($message, array $context = array()) { $this->log(LogLevel::EMERGENCY, $message, $context); }
 
 	/**
 	 * Action must be taken immediately.
@@ -39,7 +61,7 @@ class ErrorLog implements LoggerInterface
 	 * @param string $message
 	 * @param array $context
 	 */
-	public function alert($message, array $context = array()) { $this->log($level, $message); }
+	public function alert($message, array $context = array()) { $this->log(LogLevel::ALERT, $message, $context); }
 
 	/**
 	 * Critical conditions.
@@ -47,7 +69,7 @@ class ErrorLog implements LoggerInterface
 	 * @param string $message
 	 * @param array $context
 	 */
-	public function critical($message, array $context = array()) { $this->log($level, $message); }
+	public function critical($message, array $context = array()) { $this->log(LogLevel::CRITICAL, $message, $context); }
 
 	/**
 	 * Runtime errors that do not require immediate action but should typically
@@ -57,7 +79,7 @@ class ErrorLog implements LoggerInterface
 	 * @param array $context
 	 * @return null
 	 */
-	public function error($message, array $context = array()) { $this->log($level, $message); }
+	public function error($message, array $context = array()) { $this->log(LogLevel::ERROR, $message, $context); }
 
 	/**
 	 * Exceptional occurrences that are not errors.
@@ -66,7 +88,7 @@ class ErrorLog implements LoggerInterface
 	 * @param array $context
 	 * @return null
 	 */
-	public function warning($message, array $context = array()) { $this->log($level, $message); }
+	public function warning($message, array $context = array()) { $this->log(LogLevel::WARNING, $message, $context); }
 
 	/**
 	 * Normal but significant events.
@@ -75,7 +97,7 @@ class ErrorLog implements LoggerInterface
 	 * @param array $context
 	 * @return null
 	 */
-	public function notice($message, array $context = array()) { $this->log($level, $message); }
+	public function notice($message, array $context = array()) { $this->log(LogLevel::NOTICE, $message, $context); }
 
 	/**
 	 * Interesting events.
@@ -86,7 +108,7 @@ class ErrorLog implements LoggerInterface
 	 * @param array $context
 	 * @return null
 	 */
-	public function info($message, array $context = array()) { $this->log($level, $message); }
+	public function info($message, array $context = array()) { $this->log(LogLevel::INFO, $message, $context); }
 
 	/**
 	 * Detailed debug information.
@@ -95,7 +117,7 @@ class ErrorLog implements LoggerInterface
 	 * @param array $context
 	 * @return null
 	 */
-	public function debug($message, array $context = array()) { $this->log($level, $message); }
+	public function debug($message, array $context = array()) { $this->log(LogLevel::DEBUG, $message, $context); }
 
 
 	/**
@@ -126,6 +148,6 @@ class ErrorLog implements LoggerInterface
 			$message = strtr($message, $replace);
 		}
 
-		error_log("$level: $message");
+		error_log(strtoupper($level) . ": $message");
 	}
 }

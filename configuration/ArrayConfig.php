@@ -32,7 +32,8 @@ abstract class ArrayConfig implements Configuration
 	 * Get a configuration directive.
 	 *
 	 * @param string $directive The configuration directive or parameter.
-	 * @param mixed $default The value to be used if the given configuration directive is not available.
+	 * @param mixed $default The value to be used if the given configuration directive is not available. The default itself defaults to null.
+	 * @return mixed The configuration directive's value, or the default if the given directive is not available.
 	 */
 	public function get($directive = NULL, $default = NULL)
 	{

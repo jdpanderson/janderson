@@ -59,6 +59,20 @@ class Server {
 	protected $logger;
 
 	/**
+	 * Set the logger with a compatible logger class.
+	 *
+	 * @param janderson\log\LoggerInterface|Psr\Log\LoggerInterface Both interfaces are equivalent.
+	 */
+	public function setLogger($logger)
+	{
+		if ($logger instanceof janderson\log\LoggerInterface) {
+			$this->logger = $logger;
+		} elseif (interface_exists('Psr\\Log\\LoggerInterface') && $logger instanceof Psr\Log\LoggerInterface) {
+			$this->logger = $logger;
+		}
+	}
+
+	/**
 	 * A callable which serves as a handler factory; Creates or returns protocol handlers.
 	 *
 	 * The callable will be called with two arguments, the same as the ProtocolHandler interface:
@@ -165,6 +179,10 @@ class Server {
 			$num = 0;
 		} else {
 			$num = $this->socket->select($readers, $writers, $err, self::SELECT_TIMEOUT);
+			$this->logger->debug(
+				"Select found {num} sockets ready: {r} readers, {w} writers, and {e} in error state",
+				array('num' => $num, 'r' => count($readers), 'w' => count($writers), 'e' => count($err))
+			);
 		}
 
 		return array($num, $readers, $writers, $err);
