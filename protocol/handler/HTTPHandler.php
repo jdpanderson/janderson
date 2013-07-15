@@ -34,24 +34,24 @@ class HTTPHandler implements ProtocolHandler
 	 *
 	 * @var string
 	 */
-	protected $rbuffer;
+	private $rbuffer;
 
 	/**
 	 * Read buffer length
 	 *
 	 * @var int
 	 */
-	protected $rbuflen;
+	private $rbuflen;
 
 	/**
 	 * @var janderson\protocol\http\Request
 	 */
-	protected $request;
+	private $request;
 
 	/** 
 	 * @var janderson\protocol\http\Response
 	 */
-	protected $response;
+	private $response;
 
 	/**
 	 * The class that will handle requests.

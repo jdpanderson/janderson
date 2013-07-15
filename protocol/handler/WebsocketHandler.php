@@ -50,9 +50,6 @@ class WebsocketHandler extends HTTPHandler
 	 */
 	const UUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-	protected $rbuf = "";
-	protected $rbuflen = 0;
-
 	/**
 	 * Are web in websocket mode, or passthru-to-HTTPHandler mode?
 	 */
@@ -95,7 +92,7 @@ class WebsocketHandler extends HTTPHandler
 		return TRUE;
 	}
 
-	public function dispatch(&$request)
+	protected function dispatch(&$request)
 	{
 		/* If this is *not* a WebSocket upgrade, just treat it like a standard HTTP request. */
 		if (!$this->isWebSocketUpgrade($request)) {
@@ -118,6 +115,8 @@ class WebsocketHandler extends HTTPHandler
 			$response->setStatusCode(HTTP::STATUS_BAD_REQUEST);
 			return $response;
 		}
+
+		/* XXX FIXME: here, we've determined we're going to upgrade to websocket, we need to figure out our Websocket handler. */
 
 		$response->setStatusCode(HTTP::STATUS_SWITCHING_PROTOCOLS);
 		$response->setHeader('Connection', 'upgrade');
