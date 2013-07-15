@@ -4,8 +4,6 @@
  */
 namespace janderson\protocol\http;
 
-use janderson\protocol\http\Dispatchable;
-
 /**
  * StaticDispatcher is a dispatcher for static content, i.e. serves files from a directory tree in the filesystem.
  */

@@ -25,6 +25,7 @@ use janderson\socket\server\ForkingServer;
 use janderson\configuration\ArgvConfig;
 use janderson\log\LogLevel;
 use janderson\log\ErrorLog;
+use janderson\misc\Posix;
 
 /**
  * Allow configuration to be specified as argv or a config file.
@@ -73,13 +74,15 @@ Accepted log levels: emergency, alert, critical, error, warning, notice, info, a
 
 HELP;
 	exit(0);
+	// XXX FIXME: ArgvConfig should have a helper to generate commandline help text.
 }
 
-$root = (posix_geteuid() === 0);
+/* Determine address and port from config, or reasonable defaults for the current UID */
+$root = (Posix::getEUID() == Posix::UID_ROOT);
 $port = $config->get('server.port', $root ? 80 : 8080);
 $addr = $config->get('server.address', Socket::ADDR_ANY);
-$handler = $config->get('server.handler', 'janderson\\protocol\\handler\\HTTPHandler');
 
+/* Set up the logger based on config, or a basic logger by default. */
 $logger = $config->get('logger.class', 'janderson\\log\\ErrorLog');
 $level = $config->get('logger.level', LogLevel::WARNING);
 $logger = new $logger($level);
@@ -90,72 +93,41 @@ $socket = new Socket();
 $socket->setBlocking(FALSE);
 $socket->listen(100, $addr, $port);
 
+/* Handle EUID/EGID switching, if requested. */
 if ($root) {
-	if ($config->get('server.euid')) {
-		$uid = $config->get('server.euid');
-		if (is_numeric($uid)) {
-			$uid = (int)$uid;
-		} else {
-			if ($info = posix_getpwnam($uid)) {
-				$uid = $info['uid'];
-			}
-		}
-
-		if (is_int($uid)) {
+	$uid = $config->get('server.euid');
+	if ($uid) {
+		if (Posix::setEUID($uid)) {
 			$logger->info("Switching to euid {euid}", array('euid' => $uid));
-			posix_seteuid($uid);
-		}
-	}
-	if ($config->get('server.egid')) {
-		$gid = $config->get('server.egid');
-		if (is_numeric($gid)) {
-			$gid = (int)$gid;
 		} else {
-			if ($info = posix_getgrnam($gid)) {
-				$gid = $info['gid'];
-			}
-		}
-
-		if (is_int($gid)) {
-			$logger->info("Switching to egid {egid}", array('egid' => $gid));
-			posix_setegid($gid);
+			$logger->warning("Failed to switch to euid {euid}", array('euid' => $uid));
 		}
 	}
-}
 
-$processes = $config->get('server.processes', 1);
-$processes = min(max($processes, 1), 1024); /* Clamp to reasonable bounds. */
-
-
-class BlogEntry {
-	public $author = "J. Anderson";
-	public $title = "Test Title";
-	public $date = "2013-01-01 00:00:00";
-	public $text = "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-}
-
-class BlogService {
-	public function getRecentEntries() {
-		return array(
-			new BlogEntry(),
-			new BlogEntry(),
-			new BlogEntry()
-		);
+	$gid = $config->get('server.egid');
+	if ($gid) {
+		if (Posix::setGUID($gid)) {
+			$logger->info("Switching to egid {egid}", array('egid' => $gid));
+		} else {
+			$logger->warning("Failed to switch to egid {egid}", array('egid' => $gid));
+		}
 	}
 }
 
 $dispatcher = new Dispatcher(array(
-	'/service/' => new JSONRPCDispatcher(array(new BlogService())),
 	'/'         => new PHPDispatcher('/home/janderson/public_html/blog/')
 ));
 
+$handler = $config->get('server.handler', 'janderson\\protocol\\handler\\HTTPHandler');
 $handlerFactory = function(&$buf, &$buflen, $params) use ($handler, $dispatcher) {
 	$handlerInst = new $handler($buf, $buflen, $params);
-	$handlerInst->setDispatcher($dispatcher);
+	$handlerInst->setHandler($dispatcher);
 	return $handlerInst;
 };
 
-if ($processes === 1) {
+$processes = $config->get('server.processes', 1);
+$processes = min(max($processes, 1), 1024); /* Clamp to reasonable bounds. */
+if ($processes <= 1) {
 	$svr = new Server($socket, $handlerFactory);
 	$svr->setLogger($logger);
 	$svr->run();

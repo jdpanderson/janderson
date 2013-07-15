@@ -8,7 +8,7 @@ use janderson\protocol\http\HTTP;
 use janderson\protocol\http\Request;
 use janderson\protocol\http\Response;
 use janderson\protocol\http\HTTPException;
-use janderson\protocol\http\Dispatchable;
+use janderson\protocol\http\RequestHandler;
 
 /**
  * Implements an HTTPHandler class.
@@ -54,11 +54,11 @@ class HTTPHandler implements ProtocolHandler
 	protected $response;
 
 	/**
-	 * The class that will dispatch requests.
+	 * The class that will handle requests.
 	 *
-	 * @var Dispatcher
+	 * @var RequestHandler
 	 */
-	protected $dispatcher;
+	protected $handler;
 
 	/**
 	 *
@@ -72,14 +72,14 @@ class HTTPHandler implements ProtocolHandler
 		$this->buflen = &$buflen;
 	}
 
-	public function setDispatcher(Dispatchable $dispatcher)
+	public function setHandler(RequestHandler $handler)
 	{
-		$this->dispatcher = $dispatcher;
+		$this->handler = $handler;
 	}
 
-	public function getDispatcher()
+	public function getHandler()
 	{
-		return $this->dispatcher;
+		return $this->handler;
 	}
 
 	/**
@@ -152,10 +152,10 @@ class HTTPHandler implements ProtocolHandler
 	protected function dispatch(&$request)
 	{
 		$response = new Response($request);
-		if (!isset($this->dispatcher)) {
+		if (!isset($this->handler)) {
 			$response->setStatusCode(HTTP::STATUS_SERVICE_UNAVAILABLE);
 		} else {
-			$this->dispatcher->dispatch($request, $response);
+			$this->handler->handle($request, $response);
 		}
 		return $response;
 	}

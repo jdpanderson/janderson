@@ -199,7 +199,7 @@ class Server {
 		$buffer = "";
 		$buflen = NULL;
 
-		/* I consider call_user_func* to be "ugly", so for 5.4+, use true callable syntax. */
+		/* I consider call_user_func* to be "ugly", so for 5.4+ use callable syntax. */
 		if (PHP_VERSION_ID >= 50300) {
 			$handlerFn = $this->handler;
 			$handler = $handlerFn($buffer, $buflen, array('socket' => $socket));

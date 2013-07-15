@@ -9,7 +9,7 @@ use janderson\protocol\http\Dispatchable;
 /**
  * JSONRPCDispatcher
  */
-class JSONRPCDispatcher implements Dispatchable {
+class JSONRPCDispatcher implements RequestHandler {
 	/**
 	 * Errors specified in the JSON-RPC 2.0 spec.
 	 */
@@ -38,7 +38,7 @@ class JSONRPCDispatcher implements Dispatchable {
 		}
 	}
 
-	public function dispatch(&$request, &$response) {
+	public function handle(Request &$request, Response &$response) {
 		if ($request->getMethod() != HTTP::METHOD_POST || strtolower($request->getHeader('Content-Type')) != 'application/json') {
 			$response->setStatusCode(HTTP::STATUS_BAD_REQUEST);
 			$response->setContent("Bad Request");
