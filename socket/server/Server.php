@@ -24,7 +24,7 @@ class Server {
 	/**
 	 * Timeout for the select call.
 	 *
-	 * Lower means better response at the cost of higher overhead. A value between 0.05 and 1 is probably best.
+	 * Lower means better response at the cost of higher overhead. A value between 0.05 and 1 is probably reasonable.
 	 *
 	 * @var float
 	 */
@@ -201,10 +201,10 @@ class Server {
 
 		/* I consider call_user_func* to be "ugly", so for 5.4+ use callable syntax. */
 		if (PHP_VERSION_ID >= 50300) {
-			$handlerFn = $this->handler;
-			$handler = $handlerFn($buffer, $buflen, array('socket' => $socket));
+			$handlerFactory = $this->handler;
+			$handler = $handlerFactory($buffer, $buflen);
 		} else {
-			$handler = call_user_func_array($this->handler, array(&$buffer, &$buflen, array('socket' => $socket)));
+			$handler = call_user_func_array($this->handler, array(&$buffer, &$buflen));
 		}
 
 		if (!($handler instanceof ProtocolHandler)) {

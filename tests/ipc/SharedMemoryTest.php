@@ -6,6 +6,13 @@ use janderson\ipc\SharedMemory;
 
 class SharedMemoryTest extends \PHPUnit_Framework_TestCase
 {
+	public function setUp()
+	{
+		if (!extension_loaded('shmop')) {
+			$this->markTestSkipped("sysvmsg is required, but not loaded");
+		}
+	}
+
 	public function testStandardOperation()
 	{
 		$shm = new SharedMemory();

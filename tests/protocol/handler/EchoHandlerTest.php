@@ -9,7 +9,8 @@ class EchoHandlerTest extends \PHPUnit_Framework_TestCase
 	public function testEchoHandler()
 	{
 		$buf = "";
-		$h = new EchoHandler($buf);
+		$buflen = 0;
+		$h = new EchoHandler($buf, $buflen);
 		$this->assertTrue($h->read("foo", 3));
 		$this->assertEquals("foo", $buf);
 		$buf = "";

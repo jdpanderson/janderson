@@ -2,10 +2,12 @@
 /**
  * This file defines the Dispatcher class, used to dispatch HTTP requests to RequestHandlers based on prefixes.
  */
-namespace janderson\protocol\http;
+namespace janderson\protocol\http\handler;
+
+use janderson\protocol\http\RequestHandler;
 
 /**
- * Dispatches an HTTP request to a prefix-specific destination, usually a callback or another ResponseHandler.
+ * A request handler that dispatches an HTTP request to a prefix-specific destination, usually a callback or another ResponseHandler.
  *
  * The destination must be either RequestHandler (PHP 5.3+) or a callback (PHP 5.4+).
  *

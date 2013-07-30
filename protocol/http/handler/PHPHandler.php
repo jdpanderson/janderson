@@ -1,13 +1,13 @@
 <?php
 /**
- * This file defines the StaticDispatcher interface
+ * This file defines the PHPHandler class
  */
 namespace janderson\protocol\http;
 
 /**
- * StaticDispatcher is a dispatcher for static content, i.e. serves files from a directory tree in the filesystem.
+ * PHPHandler is a request handler for static content and PHP files, i.e. serves files from a directory tree in the filesystem, and executes PHP.
  */
-class PHPDispatcher extends StaticDispatcher {
+class PHPHandler extends StaticHandler {
 	protected function getContent($file)
 	{
 		if (substr($file, -4) == '.php') {

@@ -26,12 +26,18 @@ class TrieTest extends \PHPUnit_Framework_TestCase
 		$this->assertFalse($t->get('test1234'));
 	}
 
-	public function testFetchLongest()
+	public function testFetchPrefix()
 	{
+		$longest = $pfxkey = NULL;
+
 		$t = new Trie();
 		$t->add('test123', "test value");
 
 		$this->assertFalse($t->get('test1234', $longest));
-		$this->assertEquals("test value", $longest);
+		$this->assertEquals("test value", $longest[1]);
+		$this->assertEquals("test123", $longest[0]);
+		$this->assertEquals("test value", $t->prefix("test1234", $pfxkey));
+		$this->assertEquals("test123", $pfxkey);
+		$this->assertFalse($t->prefix("abc123"));
 	}
 }

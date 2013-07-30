@@ -9,7 +9,8 @@ class DaytimeHandlerTest extends \PHPUnit_Framework_TestCase
 	public function testDaytimeHandler()
 	{
 		$buf = "";
-		$h = new DaytimeHandler($buf);
+		$buflen = 0;
+		$h = new DaytimeHandler($buf, $buflen);
 		/* This should work so long as the daytime handler outputs its date in the same timezone as we're reading... Which it does at the moment. */
 		$time = strptime(trim($buf), "%A, %B %e, %Y %k:%M:%S-%Z");
 		$time = mktime($time['tm_hour'], $time['tm_min'], $time['tm_sec'], $time['tm_mon'] + 1, $time['tm_mday'], $time['tm_year'] + 1900);

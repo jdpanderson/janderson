@@ -1,15 +1,15 @@
 <?php
 /**
- * This file defines the JSONRPCDispatcher interface
+ * This file defines the JSONRPCHandler class
  */
 namespace janderson\protocol\http;
 
-use janderson\protocol\http\Dispatchable;
+use janderson\protocol\http\RequestHandler;
 
 /**
- * JSONRPCDispatcher
+ * JSONRPCHandler: Pass HTTP requests to classes as remote procedure calls.
  */
-class JSONRPCDispatcher implements RequestHandler {
+class JSONRPCHandler implements RequestHandler {
 	/**
 	 * Errors specified in the JSON-RPC 2.0 spec.
 	 */

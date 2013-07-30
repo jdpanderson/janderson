@@ -25,7 +25,7 @@ class Response {
 		}
 	}
 
-	public function setException(Exception $e) {
+	public function setException(HTTPException $e) {
 		$this->code = $e->getCode();
 		$this->message = $e->getMessage();
 	}

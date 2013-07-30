@@ -16,9 +16,9 @@ spl_autoload_register(function($class_name) {
 });
 
 use janderson\protocol\http\Dispatcher;
-use janderson\protocol\http\StaticDispatcher;
-use janderson\protocol\http\PHPDispatcher;
-use janderson\protocol\http\JSONRPCDispatcher;
+use janderson\protocol\http\StaticFileHandler;
+use janderson\protocol\http\PHPHandler;
+use janderson\protocol\http\JSONRPCHandler;
 use janderson\socket\Socket;
 use janderson\socket\server\Server;
 use janderson\socket\server\ForkingServer;
@@ -106,7 +106,7 @@ if ($root) {
 
 	$gid = $config->get('server.egid');
 	if ($gid) {
-		if (Posix::setGUID($gid)) {
+		if (Posix::setEGID($gid)) {
 			$logger->info("Switching to egid {egid}", array('egid' => $gid));
 		} else {
 			$logger->warning("Failed to switch to egid {egid}", array('egid' => $gid));
@@ -115,9 +115,24 @@ if ($root) {
 }
 
 $dispatcher = new Dispatcher(array(
-	'/'         => new PHPDispatcher('/home/janderson/public_html/blog/')
+	'/' => new PHPHandler('/home/janderson/public_html/blog/')
 ));
 
+$wsDispatcher = new WebsocketDispatcher(
+	array(
+		'/echo1/' => function(&$buf, &$buflen) { return new janderson\protocol\handler\EchoHandler($buf, $buflen); },
+		'/echo2/' => 'janderson\\protocol\\handler\\EchoHandler'
+	)
+);
+
+/**
+ * The socket server accepts a callable that is expected to return a valid protocol handler. (A protocol handler factory.)
+ *
+ * The callable is expected to set up the handler, and any sub-instances or configuration that handler requires.
+ *
+ * For simple protocols, e.g. the EchoHandler, the callable only needs to return a new instance of the EchoHandler itself.
+ * For more complex protocols, e.g. HTTP, the callable will need to do a lot more.
+ */
 $handler = $config->get('server.handler', 'janderson\\protocol\\handler\\HTTPHandler');
 $handlerFactory = function(&$buf, &$buflen, $params) use ($handler, $dispatcher) {
 	$handlerInst = new $handler($buf, $buflen, $params);

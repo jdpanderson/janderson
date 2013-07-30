@@ -12,7 +12,7 @@ class IPCLockTest extends LockTest
 
 	public function setUp()
 	{
-		if (!extension_loaded('sysvsem') || !extension_loaded('sysvshm')) {
+		if (!extension_loaded('shmop') || !extension_loaded('sysvsem') || !extension_loaded('sysvshm')) {
 			$this->markTestSkipped("SysV-IPC modules not available");
 		}
 		parent::setUp();

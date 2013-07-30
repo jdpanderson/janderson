@@ -35,7 +35,7 @@ class Trie {
  	 * Gets the value stored for a key in the Trie.
 	 *
 	 * @param string $string The string key for which a value will be retrieved.
-	 * @param mixed &$longest If provided, is populated with the longest matching value, or will remain unchanged if no value was found.
+	 * @param [string, mixed] &$longest If provided, is populated with the longest matching key and value, or will remain unchanged if no value was found.
 	 * @return mixed The value stored in the Trie for the given key. (True is stored by default if no value is given, so if existence-only tests are required, checking for true/false is sufficient.)
 	 */
 	public function get($string, &$longest = NULL) {
@@ -52,10 +52,29 @@ class Trie {
 			$node = &$node[$char];
 
 			if (isset($node[self::KEY_VALUE])) {
-				$longest = $node[self::KEY_VALUE];
+				$longest = array(substr($string, 0, $i + 1), $node[self::KEY_VALUE]);
 			}
 		}
 
 		return isset($node[self::KEY_VALUE]) ? $node[self::KEY_VALUE] : FALSE;
+	}
+
+	/**
+	 * Gets the value for the longest prefix matching the given string.
+	 *
+	 * @param string $string The string key to search for.
+	 * @return [string, mixed] The longest matching key and value, or false if not found.
+	 */
+	public function prefix($string, &$key = NULL)
+	{
+		$longest = FALSE;
+		$this->get($string, $longest);
+
+		if ($longest) {
+			$key = $longest[0];
+			return $longest[1];
+		}
+
+		return FALSE;
 	}
 }

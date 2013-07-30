@@ -1,13 +1,16 @@
 <?php
 /**
- * This file defines the StaticDispatcher interface
+ * This file defines the StaticFileHandler class
  */
-namespace janderson\protocol\http;
+namespace janderson\protocol\http\handler;
+
+use janderson\protocol\http\RequestHandler;
+use janderson\protocol\http\HTTPException;
 
 /**
- * StaticDispatcher is a dispatcher for static content, i.e. serves files from a directory tree in the filesystem.
+ * StaticFileHandler is a dispatcher for static content, i.e. serves files from a directory tree in the filesystem.
  */
-class StaticDispatcher implements RequestHandler {
+class StaticFileHandler implements RequestHandler {
 	protected static $contentTypeMap = array(
 		'html' => 'text/html',
 		'txt'  => 'text/plain',
@@ -31,7 +34,7 @@ class StaticDispatcher implements RequestHandler {
 		$this->path = realpath($path);
 
 		if (!$this->path) {
-			throw new Exception("Path not found");
+			throw new HTTPException("Path not found");
 		}
 
 		if (!is_dir($this->path)) {

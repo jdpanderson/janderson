@@ -64,19 +64,28 @@ class HTTPHandler implements ProtocolHandler
 	 *
 	 * @param string $buffer The write buffer to which responses should be written.
 	 * @param int $buflen The length of the write buffer.
-	 * @param mixed[] $params Parameters for this handler.
 	 */
-	public function __construct(&$buffer, &$buflen, $params)
+	public function __construct(&$buffer, &$buflen)
 	{
 		$this->buffer = &$buffer;
 		$this->buflen = &$buflen;
 	}
 
+	/**
+	 * Set the HTTP request handler which will handle requests sent to this protocol handler.
+	 *
+	 * @param RequestHandler $handler
+	 */
 	public function setHandler(RequestHandler $handler)
 	{
 		$this->handler = $handler;
 	}
 
+	/**
+	 * Get the HTTP request handler.
+	 *
+	 * @return RequestHandler
+	 */
 	public function getHandler()
 	{
 		return $this->handler;

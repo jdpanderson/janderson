@@ -10,7 +10,8 @@ class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 	{
 		$request = "GET / HTTP/1.0\n\n";
 		$buf = "";
-		$h = new HTTPHandler($buf);
+		$buflen = 0;
+		$h = new HTTPHandler($buf, $buflen);
 		$this->assertTrue($h->read($request, strlen($request)));
 		$this->assertFalse(empty($buf), "Buffer should contain a response");
 	
@@ -29,7 +30,8 @@ class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 	public function testMultiPieceRequest()
 	{
 		$buf = "";
-		$h = new HTTPHandler($buf);
+		$buflen = 0;
+		$h = new HTTPHandler($buf, $buflen);
 		foreach (array("POST / HTTP/1.0\r\n", "Content-Length: 4\r\n\r\n", "data") as $part) {
 			$this->assertTrue($h->read($part, strlen($part)));
 		}
@@ -49,7 +51,8 @@ class HTTPHandlerTest extends \PHPUnit_Framework_TestCase
 	public function testInvalidRequests($request)
 	{
 		$buf = "";
-		$h = new HTTPHandler($buf);
+		$buflen = 0;
+		$h = new HTTPHandler($buf, $buflen);
 		$h->read($request, strlen($request));
 	}
 

@@ -6,6 +6,13 @@ use janderson\ipc\MessageQueue;
 
 class MessageQueueTest extends \PHPUnit_Framework_TestCase
 {
+	public function setUp()
+	{
+		if (!extension_loaded('sysvmsg')) {
+			$this->markTestSkipped("sysvmsg is required, but not loaded");
+		}
+	}
+
 	public function testQueue()
 	{
 		$value = "test123";

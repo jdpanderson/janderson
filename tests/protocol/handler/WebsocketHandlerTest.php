@@ -3,6 +3,7 @@
 namespace janderson\tests\protocol\handler;
 
 use janderson\protocol\handler\WebsocketHandler;
+use janderson\protocol\handler\NullHandler;
 
 class WebsocketHandlerTest extends \PHPUnit_Framework_TestCase
 {
@@ -10,13 +11,16 @@ class WebsocketHandlerTest extends \PHPUnit_Framework_TestCase
 	{
 		$request = "GET / HTTP/1.1\nHost: localhost\nConnection: Upgrade\nUpgrade: Websocket\nSec-Websocket-Version: 13\nSec-Websocket-Key: dGhlIHNhbXBsZSBub25jZQ==\n\n";
 		$buf = "";
-		$h = new WebsocketHandler($buf);
+		$buflen = 0;
+		$h = new WebsocketHandler($buf, $buflen);
+		$h->setProtocolHandlerFactory(function(&$b, &$l) { return new NullHandler($b, $l); });
 		$this->assertTrue($h->read($request, strlen($request)));
 		$this->assertFalse(empty($buf), "Buffer should contain a response");
 
 		/* parse parses and also does basic validation. */
 		list($version, $code, $message, $headers, $body) = $this->parseHTTPResponse($buf);
 
+		$this->assertTrue(isset($headers['sec-websocket-accept']));
 		$this->assertEquals("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=", $headers['sec-websocket-accept'], "Example websocket accept does not match sample value from RFC6455 (page 24)");
 		$this->assertEquals("upgrade", strtolower($headers['connection']), "Required 'connection' header missing");
 		$this->assertEquals("websocket", strtolower($headers['upgrade']), "Required 'upgrade' header missing");
@@ -26,7 +30,8 @@ class WebsocketHandlerTest extends \PHPUnit_Framework_TestCase
 	{
 		$request = "GET / HTTP/1.1\nHost: localhost\nConnection: Upgrade\nUpgrade: Websocket\nSec-Websocket-Version: 12\nSec-Websocket-Key: dGhlIHNhbXBsZSBub25jZQ==\n\n";
 		$buf = "";
-		$h = new WebsocketHandler($buf);
+		$buflen = 0;
+		$h = new WebsocketHandler($buf, $buflen);
 		$this->assertTrue($h->read($request, strlen($request)));
 		$this->assertFalse(empty($buf), "Buffer should contain a response");
 
