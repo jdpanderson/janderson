@@ -12,13 +12,19 @@ spl_autoload_register(function($class_name) {
 	}
 
 	$file = sprintf("%s/%s.php", __DIR__, implode('/', array_slice($elements, 1)));
-	require $file;
+	$result = include $file;
+
+	if (!$result) {
+		debug_print_backtrace();
+		exit(1);
+	}
 });
 
-use janderson\protocol\http\Dispatcher;
-use janderson\protocol\http\StaticFileHandler;
-use janderson\protocol\http\PHPHandler;
-use janderson\protocol\http\JSONRPCHandler;
+use janderson\protocol\http\handler\Dispatcher;
+use janderson\protocol\http\handler\StaticFileHandler;
+use janderson\protocol\http\handler\PHPHandler;
+use janderson\protocol\http\handler\JSONRPCHandler;
+use janderson\protocol\websocket\WebsocketDispatcher;
 use janderson\socket\Socket;
 use janderson\socket\server\Server;
 use janderson\socket\server\ForkingServer;
@@ -115,13 +121,12 @@ if ($root) {
 }
 
 $dispatcher = new Dispatcher(array(
-	'/' => new PHPHandler('/home/janderson/public_html/blog/')
+	'/' => new PHPHandler('/home/janderson/public_html/')
 ));
 
 $wsDispatcher = new WebsocketDispatcher(
 	array(
-		'/echo1/' => function(&$buf, &$buflen) { return new janderson\protocol\handler\EchoHandler($buf, $buflen); },
-		'/echo2/' => 'janderson\\protocol\\handler\\EchoHandler'
+		'/echo' => 'janderson\\protocol\\handler\\EchoHandler'
 	)
 );
 
@@ -133,10 +138,11 @@ $wsDispatcher = new WebsocketDispatcher(
  * For simple protocols, e.g. the EchoHandler, the callable only needs to return a new instance of the EchoHandler itself.
  * For more complex protocols, e.g. HTTP, the callable will need to do a lot more.
  */
-$handler = $config->get('server.handler', 'janderson\\protocol\\handler\\HTTPHandler');
-$handlerFactory = function(&$buf, &$buflen, $params) use ($handler, $dispatcher) {
-	$handlerInst = new $handler($buf, $buflen, $params);
+$handler = $config->get('server.handler', 'janderson\\protocol\\handler\\WebsocketHandler');
+$handlerFactory = function(&$buf, &$buflen) use ($handler, $dispatcher, $wsDispatcher) {
+	$handlerInst = new $handler($buf, $buflen);
 	$handlerInst->setHandler($dispatcher);
+	$handlerInst->setProtocolHandlerFactory(function(&$buf, &$buflen, &$req, &$res) use($wsDispatcher) { $wsDispatcher->getProtocolHandler($buf, $buflen, $req, $res); });
 	return $handlerInst;
 };
 

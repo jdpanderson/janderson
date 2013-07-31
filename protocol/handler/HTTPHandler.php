@@ -58,7 +58,7 @@ class HTTPHandler implements ProtocolHandler
 	 *
 	 * @var RequestHandler
 	 */
-	protected $handler;
+	private $handler;
 
 	/**
 	 *

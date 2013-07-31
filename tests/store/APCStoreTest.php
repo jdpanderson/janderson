@@ -11,6 +11,11 @@ class APCStoreTest extends KeyValueStoreTest
 		if (!extension_loaded('apc')) {
 			$this->markTestSkipped("APC not available");
 		}
+
+		if (ini_get('apc.enable_cli') != "1") {
+			$this->markTestSkipped("APC not enabled. Please set apc.enable_cli = 1");
+		}
+
 		parent::setUp();
 	}
 

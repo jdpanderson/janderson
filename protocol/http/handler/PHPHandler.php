@@ -2,12 +2,12 @@
 /**
  * This file defines the PHPHandler class
  */
-namespace janderson\protocol\http;
+namespace janderson\protocol\http\handler;
 
 /**
  * PHPHandler is a request handler for static content and PHP files, i.e. serves files from a directory tree in the filesystem, and executes PHP.
  */
-class PHPHandler extends StaticHandler {
+class PHPHandler extends StaticFileHandler {
 	protected function getContent($file)
 	{
 		if (substr($file, -4) == '.php') {

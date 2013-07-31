@@ -2,8 +2,10 @@
 /**
  * This file defines the JSONRPCHandler class
  */
-namespace janderson\protocol\http;
+namespace janderson\protocol\http\handler;
 
+use janderson\protocol\http\Request;
+use janderson\protocol\http\Response;
 use janderson\protocol\http\RequestHandler;
 
 /**
