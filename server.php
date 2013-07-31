@@ -120,15 +120,29 @@ if ($root) {
 	}
 }
 
+/**
+ * HTTP requests are reasonably simple because they're stateless. They can be passed along to static request handlers based on prefix (or other things).
+ *
+ * The Dispatcher request handler does this in a simple way.
+ */
 $dispatcher = new Dispatcher(array(
 	'/' => new PHPHandler('/home/janderson/public_html/')
 ));
 
+/**
+ * Websocket requests are a little more involved because each websocket is a connected socket that is handled by a protocol handler, rather than a request handler. It deals in buffers and callbacks rather than simple request-response.
+ *
+ * First, set up a dispatcher that will create new protocol handler instances for known prefixes.
+ * Second, create a callback that calls the dispatcher to return those instances.
+ */
 $wsDispatcher = new WebsocketDispatcher(
 	array(
 		'/echo' => 'janderson\\protocol\\handler\\EchoHandler'
 	)
 );
+$wsFactory = function(&$buf, &$buflen, &$req, &$res) use($wsDispatcher) {
+	$wsDispatcher->getProtocolHandler($buf, $buflen, $req, $res);
+};
 
 /**
  * The socket server accepts a callable that is expected to return a valid protocol handler. (A protocol handler factory.)
@@ -139,10 +153,10 @@ $wsDispatcher = new WebsocketDispatcher(
  * For more complex protocols, e.g. HTTP, the callable will need to do a lot more.
  */
 $handler = $config->get('server.handler', 'janderson\\protocol\\handler\\WebsocketHandler');
-$handlerFactory = function(&$buf, &$buflen) use ($handler, $dispatcher, $wsDispatcher) {
+$handlerFactory = function(&$buf, &$buflen) use ($handler, $dispatcher, $wsFactory) {
 	$handlerInst = new $handler($buf, $buflen);
 	$handlerInst->setHandler($dispatcher);
-	$handlerInst->setProtocolHandlerFactory(function(&$buf, &$buflen, &$req, &$res) use($wsDispatcher) { $wsDispatcher->getProtocolHandler($buf, $buflen, $req, $res); });
+	$handlerInst->setProtocolHandlerFactory($wsFactory);
 	return $handlerInst;
 };
 

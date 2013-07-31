@@ -13,6 +13,7 @@ class Response {
 	public function __construct(Request &$request) {
 		$this->request = &$request;
 		$this->version = $request->getVersion();
+		$this->setHeader('Date', gmdate('D, d M Y H:i:s T'));
 
 		if ($this->version == HTTP::VERSION_1_1) {
 			if (!$request->keepAlive()) {
@@ -73,7 +74,12 @@ class Response {
 		$contentLength = strlen($this->content);
 		$this->headers['Content-Length'] = $contentLength;
 
+		$hasContentType = FALSE;
 		foreach ($this->headers as $header => $value) {
+			if (strtolower($header) == 'content-type') {
+				$hasContentType = TRUE;
+			}
+
 			if (is_array($value)) {
 				foreach ($value as $v) {
 					$headers[] = "$header: $v";
@@ -82,6 +88,10 @@ class Response {
 				$headers[] = "$header: $value";
 			}
 		}
+		if (!$hasContentType) {
+			$headers[] = "Content-Type: text/html; charset=UTF-8";
+		}
+
 		$headers = implode(HTTP::EOL, $headers) . HTTP::EOL . HTTP::EOL;
 
 		return array($headers . $this->content, strlen($headers) + $contentLength);
