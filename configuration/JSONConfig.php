@@ -24,6 +24,8 @@ class JSONConfig extends ArrayConfig
 		}
 
 		$this->conf = array_merge_recursive($this->conf, $conf);
+
+		return TRUE;
 	}
 
 	/**
