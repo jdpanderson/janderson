@@ -18,8 +18,7 @@ class IniConfigTest extends \PHPUnit_Framework_TestCase
 		$cfg->save($tmp);
 
 		$cpy = new IniConfig();
-		$cpy->load($tmp);
-
+		$this->assertTrue($cpy->load($tmp));
 		$this->assertEquals($cfg->flatten(), $cpy->flatten());
 		$this->assertEquals(123, $cpy['foo.bar']);
 		$this->assertEquals("teststr", $cpy['foo.baz']);
