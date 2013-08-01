@@ -29,6 +29,8 @@ use janderson\socket\Socket;
 use janderson\socket\server\Server;
 use janderson\socket\server\ForkingServer;
 use janderson\configuration\ArgvConfig;
+use janderson\configuration\JSONConfig;
+use janderson\configuration\IniConfig;
 use janderson\log\LogLevel;
 use janderson\log\ErrorLog;
 use janderson\misc\Posix;
@@ -37,6 +39,7 @@ use janderson\misc\Posix;
  * Allow configuration to be specified as argv or a config file.
  */
 $config = new ArgvConfig(array(
+    'c' => 'config',
 	'h' => 'help',
 	'n' => 'server.processes',
 	'H' => 'server.handler',
@@ -49,34 +52,122 @@ $config = new ArgvConfig(array(
 ));
 $config->load();
 
+/* Load/merge the config file. */
+if ($file = $config->get('config')) {
+    if (!file_exists($file)) {
+        echo "File not found: $cfg\n";
+        exit(1);
+    }
+
+    $success = FALSE;
+    if (substr($file, -4) == ".ini") {
+        $cfg = new IniConfig();
+        $success = $cfg->load($file);
+    } elseif (substr($file, -5) == ".json") {
+        $cfg = new JSONConfig();
+        $success = $cfg->load($file);
+    }
+
+    if (!$success) {
+        echo "Config file format invalid or not supported.\n";
+        exit(1);
+    }
+
+    foreach ($cfg->flatten() as $directive => $value) {
+        $config->set($directive, $value);
+    }
+}
+
 if ($config->get('help')) {
 	echo <<<HELP
 Usage: {$argv[0]} [options]
 
 Options:
-  -h           Show this help
-  -H <handler> Use protocol handler class <handler>
-  -n <num>     Spawn up to <num> server processes.
-  -a <addr>    Bind to address <addr>. (Default is all bind to all addresses.)
-  -p <port>    Listen on port <port>. (Default is 80, or 8080 for non-root.)
-  -u <euid>    Set the effective UID of the server processes. (root only.)
-  -g <egid>    Set the effective GID of the server processes. (root only.)
-  -l <logger>  A PSR3-compatible logger class. Defaults to janderson\log\ErrorLog
-  -L <level>   The level of messages to log. Levels are RFC5424 log levels.
+  -h, --help
+  -c <cfg>,  --config <cfg>            Load configuration from file (JSON/ini)
+  -H <cls>,  --server-handler <cls>    Use protocol handler class <cls>
+  -n <num>,  --server-processes <num>  Spawn up to <num> server processes
+  -a <addr>, --server-address <addr>   Bind to address <addr> (Default all)
+  -p <port>, --server-port <port>      Listen on port <port> (Default 80*/8080)
+  -u <uid>,  --server-euid <uid>       Set the EUID of the server process*
+  -g <gid>,  --server-egid <egid>      Set the GUID of the server process*
+  -l <cls>,  --logger-class <cls>      Use this PSR3-compatible logger class
+  -L <lvl>,  --logger-level <lvl>      RFC5424 log level
 
-Equivalent long form options:
-  h: --help 
-  H: --server-handler <handler>
-  n: --server-processes <num>
-  a: --server-address <addr>
-  p: --server-port <port>
-  u: --server-euid <euid>
-  g: --server-egid <egid>
-  l: --logger-class <logger>
-  L: --logger-level <level>
+* = Requires root
 
-Accepted log levels: emergency, alert, critical, error, warning, notice, info, and debug
+Accepted log levels: emergency, alert, critical, error, warning, notice, info,
+                     and debug
 
+Options for that apply when using Websocket or HTTP protocol handlers:
+
+  Set HTTP request handlers (where N is a digit starting at 0):
+    --http-N-php <0/1>     Execute PHP scripts (1) or not (0)
+    --http-N-prefix <pfx>  HTTP path prefix (e.g. "/")
+    --http-N-path <path>   Path used to serve files under the prefix
+
+Options that apply when using Websocket the protocol handler:
+
+  Set websocket protocol handlers (where N is a digit starting at 0):
+    --ws-N-class <cls>  A protocol handler class name which will handle this
+                        websocket
+    --ws-N-prefix <pfx> HTTP path prefix (path requested by websocket upgrade)
+
+
+Example 1: Handle the Echo protocol on TCP port 7 (requires root)
+
+  {$argv[0]} -p 7 -H 'janderson\\\\protocol\\\\handler\\\\EchoHandler'
+
+Example 2: Simple HTTP server (requires root, drops privileges)
+
+  {$argv[0]} -p 80 -H 'janderson\\\\protocol\\\\handler\\\\HTTPHandler' \
+             -u www-data -g www-data \
+             --http-0-prefix / --http-0-path /home/\$USER/public_html
+
+Example 3: Serve HTTP w/ PHP, and an echo websocket handler on /echo
+
+  {$argv[0]} -p 80 -H 'janderson\\\\protocol\\\\handler\\\\WebsocketHandler' \
+             --http-0-prefix / --http-0-path /var/www http-0-php 1 \
+             --ws-0-prefix /echo \
+             --ws-0-class 'janderson\\\\protocol\\\\handler\\\\EchoHandler'
+
+Example 4: Example 3 with a config file
+
+  {$argv[0]} -c server.ini
+
+    OR
+
+  {$argv[0]} -c server.json
+
+  server.ini:
+
+    [server]
+    port = 80
+    handler = "janderson\\\\protocol\\\\handler\\\\WebsocketHandler"
+
+    [http]
+    0.php = 1
+    0.prefix = "/"
+    0.path = "/var/www/"
+
+    [ws]
+    0.prefix = "/echo"
+    0.class = "janderson\\\\protocol\\\\handler\\\\EchoHandler"
+
+  server.json
+
+    {
+        "server": {
+            "port": 80,
+            "handler": "janderson\\\\protocol\\\\handler\\\\WebsocketHandler"
+        },
+        "http": [
+            { "php": true, "prefix": "/", "path": "/var/www/" }
+        ],
+        "ws": [
+            { "prefix": "/echo", "class": "janderson\\\\protocol\\\\handker\\\\EchoHandler" }
+        ]
+    }
 
 HELP;
 	exit(0);
@@ -124,6 +215,8 @@ if ($root) {
  * HTTP requests are reasonably simple because they're stateless. They can be passed along to static request handlers based on prefix (or other things).
  *
  * The Dispatcher request handler does this in a simple way.
+ *
+ * XXX FIXME: iterate through $config->get('http') here to configure this.
  */
 $dispatcher = new Dispatcher(array(
 	'/' => new PHPHandler('/home/janderson/public_html/')
@@ -134,6 +227,8 @@ $dispatcher = new Dispatcher(array(
  *
  * First, set up a dispatcher that will create new protocol handler instances for known prefixes.
  * Second, create a callback that calls the dispatcher to return those instances.
+ *
+ * XXX FIXME: iterate through $config->get('ws') here to configure this.
  */
 $wsDispatcher = new WebsocketDispatcher(
 	array(

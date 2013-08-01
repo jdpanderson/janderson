@@ -1,0 +1,12 @@
+{
+	"server": {
+		"port": 80,
+		"handler": "janderson\\protocol\\handler\\WebsocketHandler"
+	},
+	"http": [
+		{ "php": true, "prefix": "/", "path": "/var/www/" }
+	],
+	"ws": [
+		{ "prefix": "/echo", "class": "janderson\\protocol\\handker\\EchoHandler" }
+	]
+}
