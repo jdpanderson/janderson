@@ -1,6 +1,6 @@
 <?php
 /**
- *
+ * This is an example of how some of these components can be put together. This implements a limited HTTP server that can serve static files, PHP, JSON-RPC, and Websocket requests.
  */
 namespace janderson;
 
@@ -26,6 +26,7 @@ use janderson\protocol\http\handler\PHPHandler;
 use janderson\protocol\http\handler\JSONRPCHandler;
 use janderson\protocol\websocket\WebsocketDispatcher;
 use janderson\socket\Socket;
+use janderson\socket\SocketException;
 use janderson\socket\server\Server;
 use janderson\socket\server\ForkingServer;
 use janderson\configuration\ArgvConfig;
@@ -39,7 +40,7 @@ use janderson\misc\Posix;
  * Allow configuration to be specified as argv or a config file.
  */
 $config = new ArgvConfig(array(
-    'c' => 'config',
+	'c' => 'config',
 	'h' => 'help',
 	'n' => 'server.processes',
 	'H' => 'server.handler',
@@ -54,28 +55,28 @@ $config->load();
 
 /* Load/merge the config file. */
 if ($file = $config->get('config')) {
-    if (!file_exists($file)) {
-        echo "File not found: $cfg\n";
-        exit(1);
-    }
+	if (!file_exists($file)) {
+		echo "File not found: $cfg\n";
+		exit(1);
+	}
 
-    $success = FALSE;
-    if (substr($file, -4) == ".ini") {
-        $cfg = new IniConfig();
-        $success = $cfg->load($file);
-    } elseif (substr($file, -5) == ".json") {
-        $cfg = new JSONConfig();
-        $success = $cfg->load($file);
-    }
+	$success = FALSE;
+	if (substr($file, -4) == ".ini") {
+		$cfg = new IniConfig();
+		$success = $cfg->load($file);
+	} elseif (substr($file, -5) == ".json") {
+		$cfg = new JSONConfig();
+		$success = $cfg->load($file);
+	}
 
-    if (!$success) {
-        echo "Config file format invalid or not supported.\n";
-        exit(1);
-    }
+	if (!$success) {
+		echo "Config file format invalid or not supported.\n";
+		exit(1);
+	}
 
-    foreach ($cfg->flatten() as $directive => $value) {
-        $config->set($directive, $value);
-    }
+	foreach ($cfg->flatten() as $directive => $value) {
+		$config->set($directive, $value);
+	}
 }
 
 if ($config->get('help')) {
@@ -97,21 +98,21 @@ Options:
 * = Requires root
 
 Accepted log levels: emergency, alert, critical, error, warning, notice, info,
-                     and debug
+					 and debug
 
 Options for that apply when using Websocket or HTTP protocol handlers:
 
   Set HTTP request handlers (where N is a digit starting at 0):
-    --http-N-php <0/1>     Execute PHP scripts (1) or not (0)
-    --http-N-prefix <pfx>  HTTP path prefix (e.g. "/")
-    --http-N-path <path>   Path used to serve files under the prefix
+	--http-N-php <0/1>     Execute PHP scripts (1) or not (0)
+	--http-N-prefix <pfx>  HTTP path prefix (e.g. "/")
+	--http-N-path <path>   Path used to serve files under the prefix
 
 Options that apply when using Websocket the protocol handler:
 
   Set websocket protocol handlers (where N is a digit starting at 0):
-    --ws-N-class <cls>  A protocol handler class name which will handle this
-                        websocket
-    --ws-N-prefix <pfx> HTTP path prefix (path requested by websocket upgrade)
+	--ws-N-class <cls>  A protocol handler class name which will handle this
+						websocket
+	--ws-N-prefix <pfx> HTTP path prefix (path requested by websocket upgrade)
 
 
 Example 1: Handle the Echo protocol on TCP port 7 (requires root)
@@ -121,53 +122,53 @@ Example 1: Handle the Echo protocol on TCP port 7 (requires root)
 Example 2: Simple HTTP server (requires root, drops privileges)
 
   {$argv[0]} -p 80 -H 'janderson\\\\protocol\\\\handler\\\\HTTPHandler' \
-             -u www-data -g www-data \
-             --http-0-prefix / --http-0-path /home/\$USER/public_html
+			 -u www-data -g www-data \
+			 --http-0-prefix / --http-0-path /home/\$USER/public_html
 
 Example 3: Serve HTTP w/ PHP, and an echo websocket handler on /echo
 
   {$argv[0]} -p 80 -H 'janderson\\\\protocol\\\\handler\\\\WebsocketHandler' \
-             --http-0-prefix / --http-0-path /var/www http-0-php 1 \
-             --ws-0-prefix /echo \
-             --ws-0-class 'janderson\\\\protocol\\\\handler\\\\EchoHandler'
+			 --http-0-prefix / --http-0-path /var/www http-0-php 1 \
+			 --ws-0-prefix /echo \
+			 --ws-0-class 'janderson\\\\protocol\\\\handler\\\\EchoHandler'
 
 Example 4: Example 3 with a config file
 
   {$argv[0]} -c server.ini
 
-    OR
+	OR
 
   {$argv[0]} -c server.json
 
   server.ini:
 
-    [server]
-    port = 80
-    handler = "janderson\\\\protocol\\\\handler\\\\WebsocketHandler"
+	[server]
+	port = 80
+	handler = "janderson\\\\protocol\\\\handler\\\\WebsocketHandler"
 
-    [http]
-    0.php = 1
-    0.prefix = "/"
-    0.path = "/var/www/"
+	[http]
+	0.php = 1
+	0.prefix = "/"
+	0.path = "/var/www/"
 
-    [ws]
-    0.prefix = "/echo"
-    0.class = "janderson\\\\protocol\\\\handler\\\\EchoHandler"
+	[ws]
+	0.prefix = "/echo"
+	0.class = "janderson\\\\protocol\\\\handler\\\\EchoHandler"
 
   server.json
 
-    {
-        "server": {
-            "port": 80,
-            "handler": "janderson\\\\protocol\\\\handler\\\\WebsocketHandler"
-        },
-        "http": [
-            { "php": true, "prefix": "/", "path": "/var/www/" }
-        ],
-        "ws": [
-            { "prefix": "/echo", "class": "janderson\\\\protocol\\\\handker\\\\EchoHandler" }
-        ]
-    }
+	{
+		"server": {
+			"port": 80,
+			"handler": "janderson\\\\protocol\\\\handler\\\\WebsocketHandler"
+		},
+		"http": [
+			{ "php": true, "prefix": "/", "path": "/var/www/" }
+		],
+		"ws": [
+			{ "prefix": "/echo", "class": "janderson\\\\protocol\\\\handker\\\\EchoHandler" }
+		]
+	}
 
 HELP;
 	exit(0);
@@ -188,7 +189,13 @@ $logger->debug("Logger created. Level set to {level}", array('level' => $level))
 /* Listen, then possibly switch the effective UID/GID */
 $socket = new Socket();
 $socket->setBlocking(FALSE);
-$socket->listen(100, $addr, $port);
+
+try {
+	$socket->listen(100, $addr, $port);
+} catch (SocketException $e) {
+	$logger->critical("Socket failed to listen (fatal): {message}", array('message' => $e->getMessage()));
+	exit(1);
+}
 
 /* Handle EUID/EGID switching, if requested. */
 if ($root) {
@@ -212,29 +219,47 @@ if ($root) {
 }
 
 /**
- * HTTP requests are reasonably simple because they're stateless. They can be passed along to static request handlers based on prefix (or other things).
- *
- * The Dispatcher request handler does this in a simple way.
- *
- * XXX FIXME: iterate through $config->get('http') here to configure this.
+ * HTTP requests are reasonably simple because they're stateless. They can be passed along to other request handlers based on prefix (or other things).
  */
-$dispatcher = new Dispatcher(array(
-	'/' => new PHPHandler('/home/janderson/public_html/')
-));
+$dispatcher = new Dispatcher();
+
+$httpPrefixes = $config->get('http', array(array('prefix' => '/', 'path' => getcwd(), 'php' => TRUE)));
+
+foreach ($httpPrefixes as $prefix) {
+	if (empty($prefix['prefix'])) {
+		$logger->warning("Prefix is missing a 'prefix' parameter. Skipped.");
+		continue;
+	}
+
+	if (!empty($prefix['jsonrpc'])) {
+		$logger->info("Handling requests for {prefix} with JSON-RPC handler", $prefix);
+		$handler = new JSONRPCHandler($prefix['classes']);
+	} elseif (empty($prefix['php']) && !empty($prefix['path'])) {
+		$logger->info("Handling requests for {prefix} with static files from {path}", $prefix);
+		$handler = new StaticFileHandler($prefix['path']);
+	} elseif (!empty($prefix['path'])) {
+		$logger->info("Handling requests for {prefix} with files from {path}", $prefix);
+		$handler = new PHPHandler($prefix['path']);
+	}
+	$dispatcher->addPrefix($prefix['prefix'], $handler);
+}
 
 /**
  * Websocket requests are a little more involved because each websocket is a connected socket that is handled by a protocol handler, rather than a request handler. It deals in buffers and callbacks rather than simple request-response.
  *
  * First, set up a dispatcher that will create new protocol handler instances for known prefixes.
  * Second, create a callback that calls the dispatcher to return those instances.
- *
- * XXX FIXME: iterate through $config->get('ws') here to configure this.
  */
-$wsDispatcher = new WebsocketDispatcher(
-	array(
-		'/echo' => 'janderson\\protocol\\handler\\EchoHandler'
-	)
-);
+$wsDispatcher = new WebsocketDispatcher();
+$wsPrefixes = $config->get('ws', array());
+foreach ($wsPrefixes as $prefix) {
+	if (!isset($prefix['prefix'], $prefix['class'])) {
+		continue;
+	}
+	$logger->info("Handling Websocket requests for {prefix} with {class}", $prefix);
+	$wsDispatcher->addPrefix($prefix['prefix'], $prefix['class']);
+}
+
 $wsFactory = function(&$buf, &$buflen, &$req, &$res) use($wsDispatcher) {
 	$wsDispatcher->getProtocolHandler($buf, $buflen, $req, $res);
 };
