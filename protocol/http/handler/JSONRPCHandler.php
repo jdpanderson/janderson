@@ -4,12 +4,23 @@
  */
 namespace janderson\protocol\http\handler;
 
+use janderson\protocol\http\HTTP;
 use janderson\protocol\http\Request;
 use janderson\protocol\http\Response;
 use janderson\protocol\http\RequestHandler;
 
 /**
  * JSONRPCHandler: Pass HTTP requests to classes as remote procedure calls.
+ *
+ * This will dispatch requests to either instances or static methods of classes, for example:
+ * <code>
+ * $handler = new JSONRPCHandler(array(
+ *     new SomeClass(), // Instance methods of SomeClass are callable on .../SomeClass
+ *     'SecondClass', // static methods of SecondClass are callable on .../SecondClass
+ *     'alias' => new SomeOtherClass(), // Instance methods of SomeOtherClass are callable on .../alias
+ *     'other' => 'SomeOtherClass' // Static methods of SomeOtherClass are callable on .../other
+ * ));
+ * </code>
  */
 class JSONRPCHandler implements RequestHandler {
 	/**
@@ -26,17 +37,14 @@ class JSONRPCHandler implements RequestHandler {
 	 */
 	protected $services = array();
 
-	/**
-	 * @var ReflectionObject[]
-	 */
-	protected $reflection = array();
-
 	public function __construct($services = array()) {
-		foreach ($services as $service) {
-			$className = explode("\\", get_class($service));
-			$className = array_pop($className);
-			$this->services[$className] = $service;
-			$this->reflection[$className] = new \ReflectionObject($service);
+		foreach ($services as $index => $service) {
+			if (is_numeric($index)) {
+				$className = explode("\\", get_class($service));
+				$className = array_pop($className);
+				$index = $className;
+			}
+			$this->services[$index] = $service;
 		}
 	}
 
@@ -115,20 +123,18 @@ class JSONRPCHandler implements RequestHandler {
 			return isset($reqObj->id) ? $result : NULL;
 		}
 
-		$reflection = $this->reflection[$service];
-		$service = $this->services[$service];
-		$method = $reqObj->method;
+		$call = array($this->services[$service], $reqObj->method);
 
-		if (!is_callable(array($service, $method))) {
-			$result['error'] = array('code' => self::ERR_METHOD_NOT_FOUND, 'message' => 'Method not found');
+		if (!is_callable($call)) {
+			$result['error'] = array('code' => self::ERR_METHOD_NOT_FOUND, 'message' => 'Method not found' . json_encode($call));
 			return isset($reqObj->id) ? $result : NULL;
 		}
 
 		try {
 			if (is_array($reqObj->params)) {
-				$result['result'] = $reflection->getMethod($method)->invokeArgs($service, $reqObj->params);
+				$result['result'] = call_user_func_array($call, $reqObj->params);
 			} elseif (is_object($reqObj->params)) {
-				$result['result'] = $service->$method($reqObj->params);
+				$result['result'] = call_user_func($call, $reqObj->params);
 			} else {
 				$result['error'] = array('code' => self::ERR_INVALID_PARAMS, 'message' => 'Invalid Params');
 			}
