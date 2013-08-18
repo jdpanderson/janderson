@@ -1,0 +1,13 @@
+{
+	"server": {
+		"port": 8080,
+		"handler": "janderson\\protocol\\handler\\WebsocketHandler"
+	},
+	"http": [
+		{ "jsonrpc": true, "prefix": "/jsonrpc/", "classes": { "chat": "janderson\\examples\\chat\\ChatService" } },
+		{ "prefix": "/", "path": "public" }
+	],
+	"ws": [
+		{ "prefix": "/echo", "class": "janderson\\protocol\\handler\\EchoHandler" }
+	]
+}
