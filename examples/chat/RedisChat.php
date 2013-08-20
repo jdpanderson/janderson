@@ -78,12 +78,8 @@ class RedisChat
 		}
 		$results = $this->redis->exec();
 
-		$return = array();
-		foreach ($rooms as $idx => $room) {
-			$return[] = array($room, json_decode($results[$idx]));
-		}
 
-		return $return;
+		return array_combine($rooms, array_map("json_decode", $results));
 	}
 
 	/**
@@ -289,7 +285,7 @@ class RedisChat
 			return FALSE;
 		}
 
-		$this->redis->rPush(sprintf(self::KEY_ROOM_MESSAGES, $room), json_encode(array(time(), $user, $message)));
+		$this->redis->rPush(sprintf(self::KEY_ROOM_MESSAGES, $room), json_encode($message));
 
 		return TRUE;
 	}
@@ -307,5 +303,10 @@ class RedisChat
 			return $messages;
 		}
 		return array_map("json_decode", $messages);
+	}
+
+	public function getMessageCount($room)
+	{
+		return $this->redis->lLen(sprintf(self::KEY_ROOM_MESSAGES, $room));
 	}
 }

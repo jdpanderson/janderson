@@ -10,7 +10,8 @@ class ChatService {
 	 *
 	 * This is an example. If we were doing this for real, this value would have to be kept secret or it users could be spoofed.
 	 */
-	const NAMESPACE_UUID = "02f7d382-431a-4346-ba1c-50586be01628";
+	const UUID_NS_USER = "02f7d382-431a-4346-ba1c-50586be01628";
+	const UUID_NS_ROOM = "d077c6de-1bc1-4076-a42b-4032f1e642fe";
 
 	private static $chat;
 
@@ -26,11 +27,13 @@ class ChatService {
 		return static::$chat;
 	}
 
+	/**
+	 * A wrapper around PHP's crypt that will also generate a bcrypt salt by default if no salt is provided.
+	 */
 	protected static function crypt($password, $salt = NULL)
 	{
 		if (!isset($salt)) {
 			$chars = array_merge(array(".", "/"), range("A", "Z"), range("a", "z"), range("0", "9"));
-			var_dump($chars);
 			$salt = "$2a$07$";
 			for ($i = 0; $i < 22; $i++) {
 				$salt .= $chars[mt_rand(0, 63)];
@@ -46,19 +49,18 @@ class ChatService {
 	 */
 	public static function register($request)
 	{
-		if (!isset($request->handle, $request->secret)) {
-			return FALSE;
+		if (empty($request->handle) || empty($request->secret)) {
+			throw new Exception("Nickname and password must not be empty.");
 		}
 
 		/* The user's UUID is a UUIDv5 in our namespace of the user's handle. */
-		$id = UUID::v5(self::NAMESPACE_UUID, $request->handle);
+		$id = UUID::v5(self::UUID_NS_USER, $request->handle);
 
 		$user = self::getChat()->getUser($id);
 
 		if ($user) {
 			if ($user->passwd != self::crypt($request->secret, $user->passwd)) {
-				var_dump($user, self::crypt($request->secret, $user->passwd));
-				return FALSE;
+				throw new \Exception("Already registered, or password incorrect.");
 			}
 		} else {
 			$user = new \stdClass();
@@ -101,7 +103,14 @@ class ChatService {
 			return FALSE;
 		}
 
-		return self::getChat()->getRooms();
+		$rooms = self::getChat()->getRooms();
+
+		$return = array();
+		foreach ($rooms as $room => $data) {
+			$return[] = $data->name;
+		}
+
+		return $return;
 	}
 
 	/**
@@ -114,11 +123,22 @@ class ChatService {
 	{
 		if (!isset($request->room, $request->id)) {
 			return FALSE;
-		} elseif (!self::getChat()->isInRoom($request->id, $request->room)) {
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->isInRoom($request->id, $room)) {
 			return FALSE;
 		}
 
-		return self::getChat()->getUsers($request->room);
+		$users = self::getChat()->getUsers($room);
+
+		$return = array();
+		foreach ($users as $user => $data) {
+			$return[] = $user->handle;
+		}
+
+		return $return;
 	}
 
 	/**
@@ -129,26 +149,25 @@ class ChatService {
 	 */
 	public static function createRoom($request)
 	{
-		echo "Creating room...\n";
 		if (!isset($request->room, $request->data, $request->id)) {
 			return FALSE;
 		} elseif (!self::getChat()->getUser($request->id)) {
 			return FALSE;
 		}
 
+		$data = new \stdClass();
+		$data->name = $request->room;
+		$data->description = $request->data;
+		$data->id = UUID::v5(self::UUID_NS_ROOM, $request->room);
 
-		echo "Creating room 2...\n";
+		$room = self::getChat()->createRoom($data->id, $data);
+		$join = self::getChat()->join($request->id, $data->id);
 
-		$room = self::getChat()->createRoom($request->room, $request->data);
-		$join = self::getChat()->join($request->id, $request->room);
-
-		var_dump($room);
-
-		return $room;
+		return $request->room;
 	}
 
 	/**
-	 * Join a room.
+	 * Join a room, leaving any previous room(s).
 	 */
 	public static function join($request)
 	{
@@ -158,7 +177,18 @@ class ChatService {
 			return FALSE;
 		}
 
-		return self::getChat()->join($request->id, $request->room);
+		$rooms = self::getChat()->getUserRooms($request->id);
+		foreach ($rooms as $room) {
+			self::getChat()->leave($request->id, $room);
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->join($request->id, $room)) {
+			return FALSE;
+		}
+
+		return self::getChat()->getMessageCount($room);
 	}
 
 	/**
@@ -168,11 +198,16 @@ class ChatService {
 	{
 		if (!isset($request->id, $request->room)) {
 			return FALSE;
-		} elseif (!self::getChat()->isInRoom($request->id, $request->room)) {
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->isInRoom($request->id, $room)) {
 			return FALSE;
 		}
 
-		return self::getChat()->leave($request->id, $request->room);
+
+		return self::getChat()->leave($request->id, $room);
 	}
 
 	/**
@@ -185,11 +220,19 @@ class ChatService {
 	{
 		if (!isset($request->id, $request->room, $request->message)) {
 			return FALSE;
-		} elseif (!self::getChat()->isInRoom($request->id, $request->room)) {
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->isInRoom($request->id, $room)) {
 			return FALSE;
 		}
 
-		return self::getChat()->message($request->id, $request->room, $request->message);
+		$user = self::getChat()->getUser($request->id);
+
+		$message = array(time(), $user->handle, $request->message);
+
+		return self::getChat()->message($request->id, $room, $message);
 	}
 
 	/**
@@ -202,7 +245,11 @@ class ChatService {
 	{
 		if (!isset($request->id, $request->room)) {
 			return FALSE;
-		} elseif (!self::getChat()->isInRoom($request->id, $request->room)) {
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->isInRoom($request->id, $room)) {
 			return FALSE;
 		}
 
@@ -210,6 +257,27 @@ class ChatService {
 			$request->index = 0;
 		}
 
-		return self::getChat()->retrieve($request->room, $request->index);
+		return self::getChat()->retrieve($room, $request->index);
+	}
+
+	/**
+	 * Get the number of messages held in a room
+	 *
+	 * @param Object $request The request object.
+	 * @return Object The response object.
+	 */
+	public static function getMessageCount($request)
+	{
+		if (!isset($request->id, $request->room)) {
+			return FALSE;
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->isInRoom($request->id, $room)) {
+			return FALSE;
+		}
+
+		return self::getChat()->getMessageCount($room);
 	}
 }

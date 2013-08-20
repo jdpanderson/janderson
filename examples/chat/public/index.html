@@ -9,12 +9,13 @@
 		<title>Chat Example</title>
 
 		<!-- Latest compiled and minified CSS -->
-		<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0-rc1/css/bootstrap.min.css" rel="stylesheet">
+		<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
 	</head>
 	<body>
 		<div class="container">
 			<h1>Chat Example</h1>
 
+			<!-- Main page body -->
 			<div class="body-content">
 				<div class="row">
 					<div class="col-12 col-sm-8">
@@ -33,7 +34,7 @@
 					</div>
 					<div class="col-12 col-sm-4">
 						<h4 id="channels-title">Channels</h4>
-						<div id="channels-list"></div>
+						<div id="channels-list"><ul class="nav nav-pills nav-stacked"></ul></div>
 						<div id="channels-actions">
 							<button id="channels-actions-create" type="button" class="btn btn-link">Create Channel</button>
 							<button id="channels-actions-refresh" type="button" class="btn btn-link">Refresh List</button>
@@ -43,20 +44,56 @@
 			</div>
 		</div>
 
-		<!-- Dialog boxes, etc. -->
+		<!-- Register Dialog Box -->
+		<div id="register-dialog" class="modal" data-keyboard="false" data-backdrop="static">
+  			<div class="modal-dialog">
+  				<div class="modal-content">
+  					<div class="modal-body">
+	  					<form id="register-form" class="form">
+	  						<fieldset>
+	  							<legend>Chat Example - Register</legend>
+	  							<div class="form-group">
+	  								If you're new here, enter a new nickname and password to register. If you've been here before, use the same nickname and password you used last time.
+	  							</div>
+	  							<div class="form-group">
+	  								<span class="help-block" id="register-dialog-message"></span>
+	  							</div>
+	  							<div class="form-group">
+	  								<label class="control-label" for="handle">Nickname</label>
+									<input id="register-dialog-nickname" type="text" name="nickname" class="form-control" placeholder="Nickname" />
+									<!-- span class="help-block">A name by which you would like to be identified.</span -->
+								</div>
+								<div class="form-group">
+	  								<label class="control-label" for="handle">Password</label>
+									<input id="register-dialog-password" type="text" name="password" class="form-control" placeholder="Password" />
+									<span class="help-block">The password will not be hidden as you type.</span>
+								</div>
+								<div class="form-group">
+									<button id="register-dialog-submit" type="submit" class="btn btn-primary">Register</button>
+								</div>
+							</fieldset>
+						</form>
+					</div>
+  				</div>
+  			</div>
+  		</div>
+
+  		<!-- Channel creation Dialog Box -->
 		<div id="channel-create-dialog" class="modal fade">
   			<div class="modal-dialog">
   				<div class="modal-content">
   					<div class="modal-body">
-	  					<form class="form">
+	  					<form id="channel-create-form" class="form">
 	  						<fieldset>
 	  							<legend>Create Channel</legend>
 	  							<div class="form-group">
 	  								<label for="name">Channel Name</label>
 									<input id="channel-create-dialog-name" type="text" name="name" class="form-control" placeholder="Channel Name" />
+									<span class="help-block">You will automatically join this channel, and the channel will disappear when the last user leaves.</span>
 								</div>
-								<button id="channel-create-dialog-submit" type="button" class="btn btn-primary">Create Channel</button>
-								<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+								<div class="form-group">
+									<button id="channel-create-dialog-submit" type="submit" class="btn btn-primary">Create Channel</button>
+									<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
 								</div>
 							</fieldset>
 						</form>
@@ -68,14 +105,13 @@
 		<!-- JavaScript plugins (requires jQuery) -->
 		<script src="http://code.jquery.com/jquery.js"></script>
 		<!-- Latest compiled and minified JavaScript -->
-		<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0-rc1/js/bootstrap.min.js"></script>
+		<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
 
 		<script src="js/chat.js"></script>
 		<script type="text/javascript">
 		var chat;
 		$(function() {
-			chat = new janderson.examples.Chat('janderson', 'janderson');
-			janderson.examples.chat.attachEventListeners(chat);
+			chat = new janderson.examples.Chat();
 		});
 		</script>
 	</body>

@@ -4,16 +4,38 @@ if (typeof janderson.examples === "undefined") janderson.examples = {};
 /** 
  * Chat interface controller.
  */
-janderson.examples.Chat = function(handle, secret) {
+janderson.examples.Chat = function() {
 	this.client = new janderson.examples.ChatClient();
-	this.client.register(handle, secret, { success: this.onRegister, failure: this.onRegisterFailure, scope: this });
 	janderson.examples.chat.attachEventListeners(this);
+	janderson.examples.chat.showRegistration();
 };
 janderson.examples.Chat.prototype = {
 	id: null,
 	client: null,
 	room: null,
 	index: 0,
+
+	/**
+	 * Determines if a websocket (a live message communication channel) is currently active.
+	 */
+	socketActive: function() {
+		return false;
+	},
+
+	poll: function() {
+		/* Only poll if we don't have a websocket or if we're in a room. */
+		if (!this.socketActive() && this.room) {
+			this.getMessages();
+		}
+
+		/* Continue polling... */
+		var scope = this;
+		window.setTimeout(function() { scope.poll(); }, 1000);
+	},
+
+	register: function(nickname, password) {
+		this.client.register(nickname, password, { success: this.onRegister, failure: this.onRegisterFailure, scope: this });
+	},
 
 	getRooms: function() {
 		this.client.getRooms(this.id, { success: this.onRoomList, failure: this.onRoomListFailure, scope: this });
@@ -46,34 +68,35 @@ janderson.examples.Chat.prototype = {
 		this.client.messages(this.id, this.room, this.index, { success: this.onMessages, failure: this.onMessagesFailure, scope: this });
 	},
 
-	onRoomChange: function(room) {
-		this.index = 0;
+	onRoomChange: function(room, index) {
+		this.index = index || 0;
 		this.room = room;
 		janderson.examples.chat.setActiveRoom(this.room);
+		if (room) {
+			janderson.examples.chat.addMessage("Now chatting in " + room);
+		}
 	},
 
 	/* Callbacks */
 	onRegister: function(result) {
 		this.id = result;
+		this.getRooms();
+		this.poll();
+		janderson.examples.chat.hideRegistration();
 	},
 	onRoomList: function(result) {
 		for (var i = 0; i < result.length; i++) {
-			janderson.examples.chat.addRoom(result[i][0]);
+			janderson.examples.chat.addRoom(result[i], this);
 		}
 	},
 	onCreateRoom: function(result) {
-		janderson.examples.chat.addRoom(result);
+		janderson.examples.chat.addRoom(result, this);
 		this.onRoomChange(result);
 	},
 	onMessage: function(result) {
-		console.debug("message sent");
-		console.debug(result);
 		this.getMessages();
 	},
 	onMessages: function(result) {
-		console.debug("messages");
-		console.debug(result);
-
 		this.index += result.length;
 
 		for (var i = 0; i < result.length; i++) {
@@ -82,15 +105,14 @@ janderson.examples.Chat.prototype = {
 
 	},
 	onJoin: function(result, params, request) {
-		this.onRoomChange(request.params[0].room);
+		this.onRoomChange(request.params[0].room, result);
 	},
 	onLeave: function(result) {
-		console.debug(result);
-		janderson.example.chat.setActiveRoom(false);
+		this.onRoomChange(null);
 	},
 	onCreateRoomFailure: function(result) { /* Nothing for now */ },
 	onMessageFailure: function(result) { /* Nothing for now */ },
-	onRegisterFailure: function(result) { /* Nothing for now. */ },
+	onRegisterFailure: function(result) { janderson.examples.chat.registrationError(result.message || "Unknown Error"); },
 	onRoomListFailure: function(result) { /* Nothing for now. */ },
 	onJoinFailure: function(result) { /* Nothing for now. */ },
 	onLeaveFailure: function(result) { /* Nothing for now. */ }
@@ -104,11 +126,14 @@ janderson.examples.chat = {
 	 * Bind DOM events to the chat object.
 	 */
 	attachEventListeners: function(chat) {
+		/* Modal register dialog submit triggers a register call. */
+		$('#register-form').on('submit', function() { chat.register($('#register-dialog-nickname').val(), $('#register-dialog-password').val()); return false; });
+
 		/* Create button shows a modal dialog. */
 		$('#channels-actions-create').on("click", function() { $('#channel-create-dialog').modal(); });
 
 		/* Modal submit creates a channel with a given name */
-		$('#channel-create-dialog-submit').on("click", function() { chat.createRoom($('#channel-create-dialog-name').val()); $('#channel-create-dialog').modal('hide'); });
+		$('#channel-create-form').on("submit", function() { chat.createRoom($('#channel-create-dialog-name').val()); $('#channel-create-dialog').modal('hide'); return false; });
 
 		/* Refresh button refreshes the channel list. */
 		$('#channels-actions-refresh').on("click", function() { chat.getRooms(); });
@@ -118,29 +143,32 @@ janderson.examples.chat = {
 		$('#channel-textarea').keypress(function(e) { if (e.which == 13 && !e.shiftKey) { sendFn(); e.preventDefault(); }});
 		$('#channel-send').click(sendFn);
 	},
-	addRoom: function(room) {
-		var old = $('#channels-list .room').filter(function() { return $.data(this, "room") == room; });
+	addRoom: function(room, chat) {
+		var old = $('#channels-list li').filter(function() { return $.data(this, "room") == room; });
 		if (old.length) {
 			return;
 		}
 
-		var container = $(document.createElement('div'))
-			.addClass('room')
-			.data("room", room);
-		var label = $(document.createElement('div'))
-			.addClass('label')
-			.addClass('label-primary')
-			.append($(document.createTextNode(room)));
+		var label = $(document.createElement('a')).append($(document.createTextNode(room))).on("click", function() { chat.join(room) });
+		var container = $(document.createElement('li')).data("room", room).append(label);
 
-		container.append(label);
-
-		$('#channels-list').append(container);
+		$('#channels-list ul').append(container);
+	},
+	showRegistration: function() {
+		$('#register-dialog').modal();
+	},
+	hideRegistration: function() {
+		$('#register-dialog').modal('hide');
+	},
+	registrationError: function(error) {
+		$('#register-dialog .form-group').addClass('has-error');
+		$('#register-dialog-message').text(error);
 	},
 	removeRoom: function(room) {
 		$('#channels-list .room').filter(function() { return $.data(this, "room") == room; }).remove();
 	},
 	setActiveRoom: function(room) {
-		$('#channels-list .room').each(function(i, item) { var label = $(item).find('.label'); if ($(item).data("room") != room) { $(label).removeClass('label-info'); } else { $(label).addClass('label-info'); } });
+		$('#channels-list ul li').each(function(i, item) { if ($(item).data("room") != room) { $(item).removeClass('active'); } else { $(item).addClass('active'); } });
 	},
 	addMessage: function(message, user, date) {
 		var container = $(document.createElement('div'))
@@ -246,9 +274,10 @@ janderson.examples.JSONRPCClient.prototype = {
 			var scope = options.scope || window;
 			if (xhr.status == 200) {
 				var response = this.decodeResponse(xhr.responseText);
-				if (!response.error && response.result && typeof options.success === "function") {
+				var hasResult = (response.result != undefined && response.result != null);
+				if (!response.error && hasResult && typeof options.success === "function") {
 					options.success.call(scope, response.result, options.params, request, xhr);
-				} else if ((response.error || !response.result) && typeof options.failure === "function") {
+				} else if ((response.error || !hasResult) && typeof options.failure === "function") {
 					options.failure.call(scope, response.error, options.params, request, xhr);
 				}
 			} else {
