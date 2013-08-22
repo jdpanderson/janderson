@@ -178,7 +178,9 @@ class Server {
 			usleep(self::SELECT_TIMEOUT * 1000000);
 			$num = 0;
 		} else {
-			$num = $this->socket->select($readers, $writers, $err, self::SELECT_TIMEOUT);
+			$sec = self::SELECT_TIMEOUT % 1;
+			$usec = (self::SELECT_TIMEOUT - $sec) * 1000000;
+			$num = $this->socket->select($readers, $writers, $err, $sec, $usec);
 			$this->logger->debug(
 				"Select found {num} sockets ready: {r} readers, {w} writers, and {e} in error state",
 				array('num' => $num, 'r' => count($readers), 'w' => count($writers), 'e' => count($err))
