@@ -49,7 +49,11 @@ class JSONRPCHandler implements RequestHandler {
 	}
 
 	public function handle(Request &$request, Response &$response) {
-		if ($request->getMethod() != HTTP::METHOD_POST || strtolower($request->getHeader('Content-Type')) != 'application/json') {
+		/* Parse content-type: a/b; charset=c type thing. */
+		$contentType = explode(";", $request->getHeader('Content-Type'));
+		$contentType = strtolower(trim(array_shift($contentType)));
+
+		if ($request->getMethod() != HTTP::METHOD_POST || $contentType != 'application/json') {
 			$response->setStatusCode(HTTP::STATUS_BAD_REQUEST);
 			$response->setContent("Bad Request");
 			return $response;

@@ -85,8 +85,21 @@ janderson.examples.Chat.prototype = {
 		janderson.examples.chat.hideRegistration();
 	},
 	onRoomList: function(result) {
+		var lobbyExists = false;
+
 		for (var i = 0; i < result.length; i++) {
 			janderson.examples.chat.addRoom(result[i], this);
+			if (result[i] == 'Lobby') {
+				lobbyExists = true;
+			}
+		}
+
+		if (!this.room) {
+			if (lobbyExists) {
+				this.join('Lobby');
+			} else {
+				this.createRoom('Lobby');
+			}
 		}
 	},
 	onCreateRoom: function(result) {
@@ -103,6 +116,9 @@ janderson.examples.Chat.prototype = {
 			janderson.examples.chat.addMessage(result[i][2], result[i][1], new Date(result[i][0] * 1000));
 		}
 
+		if (result.length) {
+			janderson.examples.chat.scrollDown();
+		}
 	},
 	onJoin: function(result, params, request) {
 		this.onRoomChange(request.params[0].room, result);
@@ -185,7 +201,11 @@ janderson.examples.chat = {
 
 		container.append(date).append(user).append(message);
 		
+
 		$('#channel-main').append(container);
+	},
+	scrollDown: function() {
+		$('#channel-main').animate({ scrollTop: $('#channel-main').height() }, "slow");
 	}
 };
 
