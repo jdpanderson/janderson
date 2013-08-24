@@ -1,1 +1,5 @@
 coverage
+php_errors.log
+/vendor/
+composer.phar
+composer.lock
