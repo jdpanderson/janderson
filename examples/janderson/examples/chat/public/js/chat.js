@@ -74,6 +74,7 @@ janderson.examples.Chat.prototype = {
 		janderson.examples.chat.setActiveRoom(this.room);
 		if (room) {
 			janderson.examples.chat.addMessage("Now chatting in " + room);
+			janderson.examples.chat.scrollDown();
 		}
 	},
 
@@ -201,11 +202,19 @@ janderson.examples.chat = {
 
 		container.append(date).append(user).append(message);
 		
-
 		$('#channel-main').append(container);
 	},
+	scrolling: false,
 	scrollDown: function() {
-		$('#channel-main').animate({ scrollTop: $('#channel-main').height() }, "slow");
+		if (janderson.examples.chat.scrolling) {
+			return;
+		}
+
+		janderson.examples.chat.scrolling = true;
+		var el = $('#channel-main');
+		el.animate({ scrollTop: el[0].scrollHeight }, 1000, "linear", function() {
+			janderson.examples.chat.scrolling = false;
+		});
 	}
 };
 
