@@ -1,0 +1,27 @@
+{
+	"name": "jdpanderson/janderson",
+	"type": "library",
+	"description": "",
+	"keywords": ["framework"],
+	"homepage": "http://janderson.ca",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Jonathan Anderson",
+			"email": "janderson@janderson.ca"
+		}
+	],
+	"require": {
+		"php": ">=5.3.3",
+		"psr/log": "~1.0"
+	},
+	"require-dev": {
+		"monolog/monolog": "~1.3"
+	},
+	"autoload": {
+		"psr-0": {
+			"janderson\\examples\\": "examples/",
+			"janderson\\": "src/"
+		}
+	}
+}

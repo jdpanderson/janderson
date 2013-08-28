@@ -4,22 +4,8 @@
  */
 namespace janderson;
 
-spl_autoload_register(function($class_name) {
-	$elements = explode('\\', $class_name);
-
-	if ($elements[0] != 'janderson') {
-		return FALSE;
-	}
-
-	$file = sprintf("%s/%s.php", __DIR__, implode('/', array_slice($elements, 1)));
-	$result = include $file;
-
-	if (!$result) {
-		debug_print_backtrace();
-		exit(1);
-	}
-});
-
+use janderson\protocol\handler\HTTPHandler;
+use janderson\protocol\handler\WebsocketHandler;
 use janderson\protocol\http\handler\Dispatcher;
 use janderson\protocol\http\handler\StaticFileHandler;
 use janderson\protocol\http\handler\PHPHandler;
@@ -35,6 +21,8 @@ use janderson\configuration\IniConfig;
 use janderson\log\LogLevel;
 use janderson\log\ErrorLog;
 use janderson\misc\Posix;
+
+require dirname(dirname(dirname(__DIR__))) . "/vendor/autoload.php";
 
 /**
  * Allow configuration to be specified as argv or a config file.
@@ -233,6 +221,7 @@ foreach ($httpPrefixes as $prefix) {
 
 	if (!empty($prefix['jsonrpc'])) {
 		$logger->info("Handling requests for {prefix} with JSON-RPC handler", $prefix);
+		$logger->info("Classes: {classes}", array("classes" => implode(",", $prefix['classes'])));
 		$handler = new JSONRPCHandler($prefix['classes']);
 	} elseif (empty($prefix['php']) && !empty($prefix['path'])) {
 		$logger->info("Handling requests for {prefix} with static files from {path}", $prefix);
@@ -275,8 +264,12 @@ $wsFactory = function(&$buf, &$buflen, &$req, &$res) use($wsDispatcher) {
 $handler = $config->get('server.handler', 'janderson\\protocol\\handler\\WebsocketHandler');
 $handlerFactory = function(&$buf, &$buflen) use ($handler, $dispatcher, $wsFactory) {
 	$handlerInst = new $handler($buf, $buflen);
-	$handlerInst->setHandler($dispatcher);
-	$handlerInst->setProtocolHandlerFactory($wsFactory);
+	if ($handlerInst instanceof HTTPHandler) {
+		$handlerInst->setHandler($dispatcher);
+	}
+	if ($handlerInst instanceof WebsocketHandler) {
+		$handlerInst->setProtocolHandlerFactory($wsFactory);
+	}
 	return $handlerInst;
 };
 
