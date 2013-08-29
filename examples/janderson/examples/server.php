@@ -41,12 +41,18 @@ $config = new ArgvConfig(array(
 ));
 $config->load();
 
+/* Get a default working directory for relative paths; The current directory. */
+$wd = getcwd();
+
 /* Load/merge the config file. */
 if ($file = $config->get('config')) {
 	if (!file_exists($file)) {
 		echo "File not found: $cfg\n";
 		exit(1);
 	}
+
+	/* If relative paths are specified in a server config, we need to be relative to the config file. */
+	$wd = dirname(realpath($file));
 
 	$success = FALSE;
 	if (substr($file, -4) == ".ini") {
@@ -211,12 +217,16 @@ if ($root) {
  */
 $dispatcher = new Dispatcher();
 
-$httpPrefixes = $config->get('http', array(array('prefix' => '/', 'path' => getcwd(), 'php' => TRUE)));
+$httpPrefixes = $config->get('http', array(array('prefix' => '/', 'path' => $wd, 'php' => TRUE)));
 
 foreach ($httpPrefixes as $prefix) {
 	if (empty($prefix['prefix'])) {
 		$logger->warning("Prefix is missing a 'prefix' parameter. Skipped.");
 		continue;
+	}
+
+	if (!empty($prefix['path']) && substr($prefix['path'], 0, 1) != "/") {
+		$prefix['path'] = realpath($wd . '/' . $prefix['path']);
 	}
 
 	if (!empty($prefix['jsonrpc'])) {
