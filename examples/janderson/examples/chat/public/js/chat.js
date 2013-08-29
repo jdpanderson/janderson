@@ -61,10 +61,21 @@ janderson.examples.Chat.prototype = {
 		}
 	},
 
+	/**
+	 * Make sure no more than 1 getMessages request is in flight at once, to prevent wierd side-effects. 
+	 */
+	getMessagesPending: false,
+
 	getMessages: function() {
+		if (this.getMessagesPending) {
+			return;
+		}
+
 		if (!this.room) {
 			return;
 		}
+
+		this.getMessagesPending = true;
 		this.client.messages(this.id, this.room, this.index, { success: this.onMessages, failure: this.onMessagesFailure, scope: this });
 	},
 
@@ -111,6 +122,7 @@ janderson.examples.Chat.prototype = {
 		this.getMessages();
 	},
 	onMessages: function(result) {
+		this.getMessagesPending = false;
 		this.index += result.length;
 
 		for (var i = 0; i < result.length; i++) {
@@ -129,6 +141,7 @@ janderson.examples.Chat.prototype = {
 	},
 	onCreateRoomFailure: function(result) { /* Nothing for now */ },
 	onMessageFailure: function(result) { /* Nothing for now */ },
+	onMessagesFailure: function(result) { this.getMessagesPending = false; },
 	onRegisterFailure: function(result) { janderson.examples.chat.registrationError(result.message || "Unknown Error"); },
 	onRoomListFailure: function(result) { /* Nothing for now. */ },
 	onJoinFailure: function(result) { /* Nothing for now. */ },
