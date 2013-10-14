@@ -235,7 +235,13 @@ janderson.examples.chat = {
  * A wrapper around the JSONRPCClient providing something that looks like a more attractive API.
  */
 janderson.examples.ChatClient = function() {
+	/* Fall back to JSON-RPC */
 	this.client = new janderson.examples.JSONRPCClient("/jsonrpc/chat");
+
+	/* Use a websocket if we can. */
+	this.socket = new WebSocket("ws://coeus:8080/chat");
+	this.socket.onmessage = function(msg) { console.debug(msg); };
+	this.socket.onerror = function(err, two) { console.debug(err); console.debug(two); };
 };
 janderson.examples.ChatClient.prototype = {
 	register: function(handle, secret, options) {

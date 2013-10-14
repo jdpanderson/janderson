@@ -8,6 +8,6 @@
 		{ "prefix": "/", "path": "public" }
 	],
 	"ws": [
-		{ "prefix": "/echo", "class": "janderson\\protocol\\handler\\EchoHandler" }
+		{ "prefix": "/chat", "class": "janderson\\examples\\chat\\ChatHandler" }
 	]
 }

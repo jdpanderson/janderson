@@ -120,7 +120,7 @@ class WebsocketHandler extends HTTPHandler
 			return parent::write();
 		}
 
-		$this->handler(write()); // XXX handle false (close) from protocol handler.
+		$this->handler->write(); // XXX handle false (close) from protocol handler.
 
 		return TRUE;
 	}
@@ -137,8 +137,8 @@ class WebsocketHandler extends HTTPHandler
 
 		/* If the buffer isn't empty, pack it and write it. */
 		if ($this->wsBuflen) {
-			$frame = new Frame(TRUE, Frame::OPCODE_BINARY, FALSE, $this->wsBuflen, $this->wsBuffer);
-			list($buf, $buflen) = $frame::pack();
+			$frame = new Frame(TRUE, Frame::OPCODE_TEXT, FALSE, $this->wsBuflen, $this->wsBuffer);
+			list($buf, $buflen) = $frame->pack();
 			$this->buffer .= $buf;
 			$this->buflen += $buflen;
 
@@ -217,6 +217,7 @@ class WebsocketHandler extends HTTPHandler
 		}
 
 		if (!($handler instanceof ProtocolHandler)) {
+			var_dump($handler, $factory);
 			return FALSE;
 		}
 

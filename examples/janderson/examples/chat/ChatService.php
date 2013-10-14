@@ -280,4 +280,30 @@ class ChatService {
 
 		return self::getChat()->getMessageCount($room);
 	}
+
+	public static function subscribe($request)
+	{
+		if (!isset($request->id, $request->room, $request->callback)) {
+			return FALSE;
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		if (!self::getChat()->isInRoom($request->id, $room)) {
+			return FALSE;
+		}
+
+		return self::getChat()->subscribe($id, $room, $callback);
+	}
+
+	public static function unsubscribe($request)
+	{
+		if (!isset($request->id, $request->room)) {
+			return FALSE;
+		}
+
+		$room = UUID::v5(self::UUID_NS_ROOM, $request->room);
+
+		return self::getChat()->unsubscribe($id, $room);
+	}
 }

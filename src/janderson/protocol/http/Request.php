@@ -135,6 +135,11 @@ class Request
 		$this->fragment = isset($parts['fragment']) ? $parts['fragment'] : '';
 	}
 
+	public function getPath()
+	{
+		return $this->path;
+	}
+
 	/**
 	 * Get a string representing the HTTP version, typically "1.0" or "1.1", but may rarely be "0.9"
 	 *

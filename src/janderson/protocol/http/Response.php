@@ -35,6 +35,11 @@ class Response {
 		$this->content .= $content;
 	}
 
+	public function getStatusCode()
+	{
+		return $this->code;
+	}
+
 	public function setStatusCode($code, $message = NULL) {
 		$this->code = $code;
 		if (isset($message)) {

@@ -230,7 +230,7 @@ foreach ($httpPrefixes as $prefix) {
 	}
 
 	if (!empty($prefix['jsonrpc'])) {
-		$logger->info("Handling requests for {prefix} with JSON-RPC handler", $prefix);
+		$logger->info("Handling requests for {prefix} with JSON-RPC handler", array('prefix' => $prefix['prefix']));
 		$logger->info("Classes: {classes}", array("classes" => implode(",", $prefix['classes'])));
 		$handler = new JSONRPCHandler($prefix['classes']);
 	} elseif (empty($prefix['php']) && !empty($prefix['path'])) {
@@ -260,7 +260,7 @@ foreach ($wsPrefixes as $prefix) {
 }
 
 $wsFactory = function(&$buf, &$buflen, &$req, &$res) use($wsDispatcher) {
-	$wsDispatcher->getProtocolHandler($buf, $buflen, $req, $res);
+	return $wsDispatcher->getProtocolHandler($buf, $buflen, $req, $res);
 };
 
 /**

@@ -10,12 +10,12 @@ class APCLockTest extends LockTest
 
 	public function setUp()
 	{
-		if (!extension_loaded('apc')) {
+		if (!extension_loaded('apc') && !extension_loaded('apcu')) {
 			$this->markTestSkipped("APC not available");
 		}
 
 		if (ini_get('apc.enable_cli') != "1") {
-			$this->markTestSkipped("APC not enabled. Please set apc.enable_cli = 1");
+			$this->markTestSkipped("APC not enabled. Please set apc(u).enable_cli = 1");
 		}
 		
 		parent::setUp();

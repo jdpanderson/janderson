@@ -309,4 +309,14 @@ class RedisChat
 	{
 		return $this->redis->lLen(sprintf(self::KEY_ROOM_MESSAGES, $room));
 	}
+
+	public function subscribe($id, $room, $callback)
+	{
+
+	}
+
+	public function unsubscribe($id, $room) 
+	{
+
+	}
 }
